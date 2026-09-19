@@ -58,7 +58,7 @@ def test_alembic_upgrade_downgrade_upgrade() -> None:
 
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
-    assert heads == ["002_collector_run"]
+    assert heads == ["003_affidavit_structured_fields"]
 
     with engine.connect() as conn:
         tables = {
@@ -68,6 +68,7 @@ def test_alembic_upgrade_downgrade_upgrade() -> None:
     assert "person" in tables
     assert "source_document" in tables
     assert "asset_declaration" in tables
+    assert "review_item" in tables
 
     get_engine.cache_clear()
     get_session_factory.cache_clear()

@@ -112,9 +112,14 @@ def test_list_and_get_person_with_provenance(client: TestClient) -> None:
     assert body["education_declarations"]
     edu = body["education_declarations"][0]
     assert edu["source_id"]
-    assert edu["value"] == "M.A. Political Science"
+    assert edu["declared_value"] == "M.A. Political Science"
     assert edu["verification_status"] == "SELF_DECLARED"
     assert "Self-declared" in edu["label"]
+    if body["asset_declarations"]:
+        asset = body["asset_declarations"][0]
+        assert "amount" in asset
+        if asset["amount"] is not None:
+            assert isinstance(asset["amount"], str)
     assert body["sources"]
     assert body["elections"]
     assert body["elections"][0]["source"]["source_id"]

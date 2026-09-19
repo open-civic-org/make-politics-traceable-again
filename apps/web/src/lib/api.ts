@@ -28,6 +28,43 @@ export type DeclaredValue = {
   label: string;
 };
 
+export type EducationDeclaration = {
+  declared_value: string;
+  normalized_level: string | null;
+  institution_raw: string | null;
+  year_raw: string | null;
+  declaration_year: number | null;
+  verification_status: string;
+  source_id: string;
+  label: string;
+};
+
+export type FinancialDeclaration = {
+  category: string | null;
+  description: string;
+  amount_raw: string | null;
+  amount: string | null;
+  currency: string | null;
+  declaration_year: number | null;
+  verification_status: string;
+  source_id: string;
+  label: string;
+};
+
+export type CaseDeclaration = {
+  case_summary: string;
+  case_number_raw: string | null;
+  court_raw: string | null;
+  act_raw: string | null;
+  section_raw: string | null;
+  status_raw: string | null;
+  normalized_status: string | null;
+  declaration_year: number | null;
+  verification_status: string;
+  source_id: string;
+  label: string;
+};
+
 export type ProvenanceRef = {
   source_id: string;
   source_authority: string | null;
@@ -52,12 +89,12 @@ export type ElectionRecord = {
 export type PersonDetail = PersonSummary & {
   aliases: string[];
   photo_url: string | null;
-  education_declarations: DeclaredValue[];
+  education_declarations: EducationDeclaration[];
   profession_declarations: DeclaredValue[];
-  asset_declarations: DeclaredValue[];
-  liability_declarations: DeclaredValue[];
-  criminal_case_declarations: DeclaredValue[];
-  income_declarations: DeclaredValue[];
+  asset_declarations: FinancialDeclaration[];
+  liability_declarations: FinancialDeclaration[];
+  criminal_case_declarations: CaseDeclaration[];
+  income_declarations: FinancialDeclaration[];
   elections: ElectionRecord[];
   sources: ProvenanceRef[];
 };

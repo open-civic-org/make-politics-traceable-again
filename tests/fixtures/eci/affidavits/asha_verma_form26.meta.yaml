@@ -1,0 +1,11 @@
+source_authority: Election Commission of India
+source_type: CANDIDATE_AFFIDAVIT
+format: plaintext_form26_sections
+capture_date: 2026-09-19
+election_year: 2024
+sanitized: true
+purpose: Offline parser regression for Form-26 structured fields (education, assets, liabilities, cases)
+live_network: false
+notes: |
+  Synthetic Form-26-shaped text. Candidate name matches the election-results fixture (Asha Verma).
+  Not a live ECI download. Sensitive fields (PAN, address, phone) intentionally omitted.
