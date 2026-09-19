@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "source_authority": "Election Commission of India",
+    "document_title": "General Election to Lok Sabha 2024 — Constituency Result (fixture)",
+    "election_type": "LOK_SABHA",
+    "election_year": 2024,
+    "format_note": "Synthetic ECI-shaped JSON for parser regression. Field names mirror common ECI result exports; not a live download."
+  },
+  "election": {
+    "electionType": "LOK_SABHA",
+    "year": 2024,
+    "electionDate": "2024-04-19",
+    "eciElectionId": "GE2024-LS"
+  },
+  "constituency": {
+    "name": "Demo Nagar",
+    "eciConstituencyCode": "S22-42",
+    "stateName": "Rajasthan",
+    "stateCode": "S22",
+    "constituencyType": "PARLIAMENTARY"
+  },
+  "candidates": [
+    {
+      "candidateName": "Asha Verma",
+      "partyName": "People's Civic Front",
+      "partyAbbreviation": "PCF",
+      "votes": 612345,
+      "voteSharePercent": "48.2000",
+      "rank": 1,
+      "result": "WON"
+    },
+    {
+      "candidateName": "Bharat Mehta",
+      "partyName": "National Development Alliance",
+      "partyAbbreviation": "NDA-DEMO",
+      "votes": 501234,
+      "voteSharePercent": "39.4500",
+      "rank": 2,
+      "result": "LOST"
+    },
+    {
+      "candidateName": "Chitra Devi",
+      "partyName": "Independent",
+      "partyAbbreviation": "IND",
+      "votes": 98210,
+      "voteSharePercent": "7.7300",
+      "rank": 3,
+      "result": "LOST"
+    },
+    {
+      "candidateName": "Dinesh Yadav",
+      "partyName": "Regional Unity Party",
+      "partyAbbreviation": "RUP",
+      "votes": 45100,
+      "voteSharePercent": "3.5500",
+      "rank": 4,
+      "result": "LOST"
+    },
+    {
+      "candidateName": "NOTA",
+      "partyName": "None of the Above",
+      "partyAbbreviation": "NOTA",
+      "votes": 14000,
+      "voteSharePercent": "1.0700",
+      "rank": 5,
+      "result": "LOST"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+source_authority: Election Commission of India
+fixture_type: election_result
+format: json
+sanitized: true
+purpose: parser regression test for fixture-mode ECI collector
+capture_date: 2026-09-19
+origin: Synthetic ECI-shaped payload (not a live ECI download). Field names follow common ECI result export conventions.
+live_network: false
+notes: |
+  Do not treat candidate names as real politicians.
+  Used only to exercise RAW → PARSED → NORMALIZED → DATABASE import.
