@@ -1,0 +1,23 @@
+# Collectors
+
+## Pipeline
+
+```text
+fetch → archive_raw (immutable) → parse → normalize → validate → persist + provenance
+```
+
+## Deduplication
+
+When `archive_raw` sees a payload whose SHA-256 already exists under the same `source_name`:
+
+1. The original payload bytes are **never overwritten**.
+2. A new observation directory is created with `metadata.json`.
+3. Metadata sets `deduplicated: true` and `reused_payload_from` to the existing payload path (or a local symlink).
+
+## Git provenance
+
+`get_git_commit_sha()` returns HEAD, `MPTA_GIT_COMMIT_SHA`, or `UNKNOWN`. Ingestion never fails solely because Git is missing. Optional `git_dirty` is stored separately on `collector_run`.
+
+## Failure artifacts
+
+Failures write `data/failures/COLLECTOR_FAILURE_*.json` with stage, exception type, message, and git commit (no secrets).

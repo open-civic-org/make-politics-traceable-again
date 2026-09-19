@@ -43,6 +43,8 @@ Thumbs.db
 # Raw data archives (keep out of Git)
 data/raw/**
 !data/raw/.gitkeep
+data/failures/**
+!data/failures/.gitkeep
 data/processed/
 *.pdf
 !tests/fixtures/**/*.pdf
