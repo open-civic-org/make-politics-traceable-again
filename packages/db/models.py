@@ -399,3 +399,29 @@ class IncomeDeclaration(Base):
     source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
 
     affidavit: Mapped[Affidavit] = relationship(back_populates="income_declarations")
+
+
+class CollectorRun(Base):
+    __tablename__ = "collector_run"
+
+    run_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    collector_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    collector_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="RUNNING")
+    source: Mapped[str | None] = mapped_column(Text)
+    git_commit_sha: Mapped[str | None] = mapped_column(String(40))
+    git_dirty: Mapped[bool | None] = mapped_column(Boolean)
+    artifacts_seen: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    artifacts_archived: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_parsed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_valid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_rejected: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_inserted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_updated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_unchanged: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

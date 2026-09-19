@@ -30,6 +30,7 @@ class IdPrefix(StrEnum):
     LIABILITY = "IND-LIA"
     CASE = "IND-CSE"
     INCOME = "IND-INC"
+    COLLECTOR_RUN = "RUN"
 
 
 def allocate_id(prefix: IdPrefix | str, sequence: int) -> str:
