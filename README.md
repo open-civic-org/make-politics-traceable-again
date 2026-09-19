@@ -101,7 +101,15 @@ Every published claim should resolve to: person → office at that time → acti
 
 Declarations (e.g. education on an affidavit) are shown as **self-declared**, not as independently verified facts, unless separately verified.
 
-## Docker status
+## Collectors
+
+See [docs/collectors.md](docs/collectors.md). Milestone 2 delivers a fixture-mode ECI election-results pipeline (no live network).
+
+```bash
+uv run alembic upgrade head
+uv run python scripts/run_eci_fixture_import.py
+```
+
 
 Compose configuration is implemented but **runtime smoke test is pending** on a Docker-capable host. See [docs/docker-validation.md](docs/docker-validation.md).
 
