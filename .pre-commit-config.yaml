@@ -1,0 +1,27 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: prettier-web
+        name: prettier (web)
+        entry: bash -c 'cd apps/web && if [ -f package.json ] && command -v pnpm >/dev/null; then pnpm exec prettier --write ${@#apps/web/} 2>/dev/null || true; fi'
+        language: system
+        files: ^apps/web/.*\.(ts|tsx|js|jsx|css|json|md)$
+        pass_filenames: true

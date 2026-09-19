@@ -1,0 +1,12 @@
+{
+  "name": "mpta",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:web": "pnpm --filter mpta-web dev",
+    "dev:admin": "pnpm --filter mpta-admin dev",
+    "build:web": "pnpm --filter mpta-web build",
+    "lint:web": "pnpm --filter mpta-web lint",
+    "typecheck:web": "pnpm --filter mpta-web typecheck"
+  }
+}
