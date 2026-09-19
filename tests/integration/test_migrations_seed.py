@@ -46,11 +46,9 @@ def test_alembic_upgrade_downgrade_upgrade() -> None:
     cfg.set_main_option("sqlalchemy.url", database_url)
 
     engine = create_engine(database_url)
-    with engine.begin() as conn:
-        try:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
-        except Exception:
-            pass
+    from tests.integration.db_utils import reset_public_schema
+
+    reset_public_schema(engine)
 
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "-1")
@@ -104,9 +102,10 @@ def test_seed_demo_idempotent() -> None:
     )
     from scripts.seed_demo import seed
     from sqlalchemy import func, select
+    from tests.integration.db_utils import reset_public_schema
 
     eng = get_engine()
-    Base.metadata.drop_all(bind=eng)
+    reset_public_schema(eng)
     Base.metadata.create_all(bind=eng)
 
     seed()

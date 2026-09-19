@@ -43,8 +43,10 @@ def db_session(tmp_path: Path):
 
     from packages.db import models  # noqa: F401
     from packages.db.base import Base
+    from tests.integration.db_utils import reset_public_schema
 
     eng = get_engine()
+    reset_public_schema(eng)
     Base.metadata.create_all(bind=eng)
     Session = get_session_factory()
     session = Session()
