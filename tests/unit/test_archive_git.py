@@ -34,7 +34,11 @@ def test_archive_and_verify(tmp_path: Path) -> None:
         retrieved_at=datetime(2024, 6, 1, tzinfo=UTC),
     )
     archived = archive_raw(
-        raw, raw_root=tmp_path, category="election_results", year=2024, payload_filename="payload.json"
+        raw,
+        raw_root=tmp_path,
+        category="election_results",
+        year=2024,
+        payload_filename="payload.json",
     )
     assert archived.payload_path.is_file()
     assert archived.metadata_path.is_file()

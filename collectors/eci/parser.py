@@ -47,7 +47,9 @@ def parse_eci_result_json(data: dict[str, Any]) -> ParsedElection:
             ParsedCandidateResult(
                 candidate_name=name,
                 party_name=party or "UNKNOWN",
-                party_abbreviation=(str(row["partyAbbreviation"]).strip() if row.get("partyAbbreviation") else None),
+                party_abbreviation=(
+                    str(row["partyAbbreviation"]).strip() if row.get("partyAbbreviation") else None
+                ),
                 votes=int(row["votes"]),
                 vote_share_percent=_decimal_or_none(row.get("voteSharePercent")),
                 rank=int(row["rank"]) if row.get("rank") is not None else None,
@@ -59,7 +61,9 @@ def parse_eci_result_json(data: dict[str, Any]) -> ParsedElection:
         election_type=str(election["electionType"]).strip().upper(),
         year=int(election["year"]),
         election_date=election_date,
-        eci_election_id=str(election["eciElectionId"]).strip() if election.get("eciElectionId") else None,
+        eci_election_id=str(election["eciElectionId"]).strip()
+        if election.get("eciElectionId")
+        else None,
         constituency=ParsedConstituency(
             name=str(constituency["name"]).strip(),
             eci_constituency_code=(
@@ -68,8 +72,12 @@ def parse_eci_result_json(data: dict[str, Any]) -> ParsedElection:
                 else None
             ),
             state_name=str(constituency["stateName"]).strip(),
-            state_code=str(constituency["stateCode"]).strip() if constituency.get("stateCode") else None,
-            constituency_type=str(constituency.get("constituencyType") or "PARLIAMENTARY").strip().upper(),
+            state_code=str(constituency["stateCode"]).strip()
+            if constituency.get("stateCode")
+            else None,
+            constituency_type=str(constituency.get("constituencyType") or "PARLIAMENTARY")
+            .strip()
+            .upper(),
         ),
         candidates=parsed_candidates,
     )

@@ -37,7 +37,12 @@ def upgrade() -> None:
         sa.Column("extraction_method", sa.String(length=64), nullable=True),
         sa.Column("extraction_confidence", sa.String(length=32), nullable=True),
         sa.Column("verification_status", sa.String(length=32), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("source_id"),
     )
 
@@ -49,8 +54,18 @@ def upgrade() -> None:
         sa.Column("official_name", sa.String(length=512), nullable=True),
         sa.Column("registration_status", sa.String(length=64), nullable=True),
         sa.Column("source_id", sa.String(length=32), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["source_id"], ["source_document.source_id"]),
         sa.PrimaryKeyConstraint("party_id"),
     )
@@ -169,8 +184,18 @@ def upgrade() -> None:
         sa.Column("current_party_id", sa.String(length=32), nullable=True),
         sa.Column("current_office", sa.String(length=128), nullable=True),
         sa.Column("is_demo", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["current_party_id"], ["party.party_id"]),
         sa.PrimaryKeyConstraint("person_id"),
     )
@@ -212,7 +237,12 @@ def upgrade() -> None:
         sa.Column("start_date", sa.Date(), nullable=True),
         sa.Column("end_date", sa.Date(), nullable=True),
         sa.Column("source_id", sa.String(length=32), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["constituency_pc_id"], ["parliamentary_constituency.pc_id"]),
         sa.ForeignKeyConstraint(["office_id"], ["office.office_id"]),
         sa.ForeignKeyConstraint(["party_id"], ["party.party_id"]),

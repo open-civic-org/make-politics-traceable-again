@@ -31,7 +31,9 @@ def _next_seq(session: Session, model, id_attr: str) -> int:
     return max_n + 1
 
 
-def _get_or_create_source(session: Session, artifact: ArchivedArtifact, stats: RunStats) -> SourceDocument:
+def _get_or_create_source(
+    session: Session, artifact: ArchivedArtifact, stats: RunStats
+) -> SourceDocument:
     existing = session.scalars(
         select(SourceDocument).where(SourceDocument.content_sha256 == artifact.sha256)
     ).first()
@@ -270,7 +272,9 @@ def persist_normalized_election(
             session.flush()
             stats.records_inserted += 1
             result = ElectionResult(
-                result_id=allocate_id(IdPrefix.RESULT, _next_seq(session, ElectionResult, "result_id")),
+                result_id=allocate_id(
+                    IdPrefix.RESULT, _next_seq(session, ElectionResult, "result_id")
+                ),
                 candidacy_id=candidacy.candidacy_id,
                 votes_received=cand.votes,
                 vote_share=cand.vote_share,

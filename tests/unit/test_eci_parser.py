@@ -9,8 +9,7 @@ from collectors.eci.parser import parse_eci_result_json
 from collectors.eci.validation import EciValidationError, validate_election
 
 FIXTURE = (
-    Path(__file__).resolve().parents[1]
-    / "fixtures/eci/election_results/ge2024_demo_nagar.json"
+    Path(__file__).resolve().parents[1] / "fixtures/eci/election_results/ge2024_demo_nagar.json"
 )
 
 

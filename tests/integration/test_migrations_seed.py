@@ -65,9 +65,7 @@ def test_alembic_upgrade_downgrade_upgrade() -> None:
     with engine.connect() as conn:
         tables = {
             r[0]
-            for r in conn.execute(
-                text("SELECT tablename FROM pg_tables WHERE schemaname='public'")
-            )
+            for r in conn.execute(text("SELECT tablename FROM pg_tables WHERE schemaname='public'"))
         }
     assert "person" in tables
     assert "source_document" in tables
