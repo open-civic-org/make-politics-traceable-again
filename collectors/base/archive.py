@@ -231,9 +231,7 @@ def verify_artifact(archive_dir: Path) -> dict[str, Any]:
 
     actual = sha256_file(payload_path)
     if actual != expected:
-        raise ArchiveError(
-            f"sha256 mismatch for {payload_path}: expected {expected}, got {actual}"
-        )
+        raise ArchiveError(f"sha256 mismatch for {payload_path}: expected {expected}, got {actual}")
 
     return {"ok": True, "sha256": actual, "payload_path": str(payload_path), "metadata": meta}
 
