@@ -60,7 +60,7 @@ def test_alembic_upgrade_downgrade_upgrade() -> None:
 
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
-    assert heads == ["001_core_schema"]
+    assert heads == ["002_collector_run"]
 
     with engine.connect() as conn:
         tables = {

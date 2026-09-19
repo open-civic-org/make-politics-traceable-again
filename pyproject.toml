@@ -38,7 +38,7 @@ asyncio_mode = "auto"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["apps", "packages", "scripts", "tests"]
+src = ["apps", "packages", "scripts", "tests", "collectors"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -46,6 +46,10 @@ ignore = ["B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "migrations/**/*.py" = ["E501"]
+"collectors/eci/parser.py" = ["E501"]
+"collectors/eci/persist.py" = ["E501"]
+"collectors/eci/validation.py" = ["E501"]
+"tests/unit/test_archive_git.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
