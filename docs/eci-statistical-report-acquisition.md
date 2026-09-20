@@ -162,3 +162,11 @@ Future object storage (R2/S3/GCS) should implement the `CaptureStorage` protocol
   variables (`$ECI_REPORT_*`) — never interpolated into shell source with `${{ inputs.* }}`
 
 Do not print workbook bodies, cookies, or secrets in logs.
+
+## Related: OGD CSV primary path (2024 Report 33)
+
+While ECI XLS returns HTTP 406 from automated clients, Milestone 5 uses the
+data.gov.in CSV distribution as the primary archive. See
+[ogd-constituency-wise-detailed-result-2024.md](ogd-constituency-wise-detailed-result-2024.md).
+This workflow remains the official-host XLS provenance tool and must not be
+used to bypass WAF controls.
