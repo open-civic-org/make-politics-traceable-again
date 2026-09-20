@@ -22,6 +22,7 @@
   "candidates": [
     {
       "candidateName": "Asha Verma",
+      "eciCandidateId": "ECI-DEMO-CAND-001",
       "partyName": "People's Civic Front",
       "partyAbbreviation": "PCF",
       "votes": 612345,
@@ -31,6 +32,7 @@
     },
     {
       "candidateName": "Bharat Mehta",
+      "eciCandidateId": "ECI-DEMO-CAND-002",
       "partyName": "National Development Alliance",
       "partyAbbreviation": "NDA-DEMO",
       "votes": 501234,
