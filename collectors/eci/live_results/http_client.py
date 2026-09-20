@@ -21,6 +21,8 @@ MIN_REQUEST_INTERVAL_SECONDS = 5.0
 DEFAULT_TIMEOUT_SECONDS = 30.0
 MAX_RESPONSE_BYTES = 5_000_000
 MAX_5XX_RETRIES = 2
+MAX_REDIRECT_HOPS = 5
+STREAM_CHUNK_SIZE = 64 * 1024
 
 
 class LiveAccessError(Exception):
@@ -57,6 +59,7 @@ class RequestBudget:
     spacings: list[float] = field(default_factory=list)
 
     def consume(self) -> None:
+        """Reserve one outbound HTTP attempt (initial, redirect, or retry)."""
         if self.requests_made >= self.max_requests:
             raise LiveNetworkError(
                 f"request cap reached ({self.max_requests})",
@@ -97,6 +100,39 @@ def validate_eci_url(url: str) -> str:
     return url
 
 
+def _read_body_limited(response: httpx.Response) -> bytes:
+    """Stream the body; reject oversized Content-Length or cumulative bytes."""
+    content_length = response.headers.get("content-length")
+    if content_length is not None:
+        try:
+            declared = int(content_length)
+        except ValueError:
+            declared = -1
+        if declared > MAX_RESPONSE_BYTES:
+            response.close()
+            raise LiveNetworkError(
+                f"Content-Length {declared} exceeds size cap ({MAX_RESPONSE_BYTES} bytes)",
+                status_code=response.status_code,
+            )
+
+    chunks: list[bytes] = []
+    total = 0
+    try:
+        for chunk in response.iter_bytes(chunk_size=STREAM_CHUNK_SIZE):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > MAX_RESPONSE_BYTES:
+                raise LiveNetworkError(
+                    f"response exceeds size cap ({MAX_RESPONSE_BYTES} bytes)",
+                    status_code=response.status_code,
+                )
+            chunks.append(chunk)
+    finally:
+        response.close()
+    return b"".join(chunks)
+
+
 class EciResultsHttpClient:
     """Single-threaded HTTPS client bounded to results.eci.gov.in."""
 
@@ -111,7 +147,7 @@ class EciResultsHttpClient:
         self._client = httpx.Client(
             transport=transport,
             timeout=timeout,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
         )
 
@@ -126,59 +162,89 @@ class EciResultsHttpClient:
 
     def get(self, url: str) -> LiveResponse:
         validate_eci_url(url)
-        self.budget.consume()
         started = time.monotonic()
-        attempt = 0
-        while True:
-            attempt += 1
-            try:
-                response = self._client.get(url)
-            except httpx.TimeoutException as exc:
-                if attempt <= MAX_5XX_RETRIES:
-                    time.sleep(min(2**attempt, 8))
-                    continue
-                raise LiveNetworkError(f"timeout fetching {url}") from exc
+        current = url
+        redirect_chain: list[str] = []
+        redirect_hops = 0
+        server_error_retries = 0
+        timeout_retries = 0
 
-            for hop in response.history:
-                loc = hop.headers.get("location")
-                if loc:
-                    validate_eci_url(urljoin(str(hop.url), loc))
-            validate_eci_url(str(response.url))
+        while True:
+            self.budget.consume()
+            try:
+                request = self._client.build_request("GET", current)
+                response = self._client.send(request, stream=True)
+            except httpx.TimeoutException as exc:
+                timeout_retries += 1
+                if timeout_retries <= MAX_5XX_RETRIES:
+                    continue
+                raise LiveNetworkError(f"timeout fetching {current}") from exc
 
             status = response.status_code
+            # Capture headers before body stream is closed.
+            content_type = response.headers.get("content-type")
+            etag = response.headers.get("etag")
+            last_modified = response.headers.get("last-modified")
+
+            if status in {301, 302, 303, 307, 308}:
+                location = response.headers.get("location")
+                response.close()
+                if not location:
+                    raise LiveNetworkError(
+                        f"redirect {status} without Location from {current}",
+                        status_code=status,
+                    )
+                next_url = urljoin(current, location)
+                # Validate BEFORE any request to the destination.
+                validate_eci_url(next_url)
+                redirect_hops += 1
+                if redirect_hops > MAX_REDIRECT_HOPS:
+                    raise LiveNetworkError(
+                        f"redirect hop limit exceeded ({MAX_REDIRECT_HOPS})",
+                        status_code=status,
+                    )
+                if next_url == current or next_url in redirect_chain:
+                    raise LiveNetworkError(
+                        f"redirect loop detected at {next_url!r}",
+                        status_code=status,
+                    )
+                redirect_chain.append(current)
+                current = next_url
+                server_error_retries = 0
+                timeout_retries = 0
+                continue
+
             if status == 429:
                 retry_after = response.headers.get("Retry-After")
+                response.close()
                 raise LiveNetworkError(
                     f"429 Too Many Requests (Retry-After={retry_after!r}); stopping canary",
                     status_code=429,
                 )
             if status == 403:
+                response.close()
                 raise LiveNetworkError(
                     "403 Forbidden; stopping canary (no bypass)", status_code=403
                 )
             if status >= 500:
-                if attempt <= MAX_5XX_RETRIES:
-                    time.sleep(min(2**attempt, 8))
+                response.close()
+                server_error_retries += 1
+                if server_error_retries <= MAX_5XX_RETRIES:
                     continue
                 raise LiveNetworkError(
-                    f"{status} from {url}; stopping after retries", status_code=status
-                )
-
-            body = response.content
-            if len(body) > MAX_RESPONSE_BYTES:
-                raise LiveNetworkError(
-                    f"response exceeds size cap ({MAX_RESPONSE_BYTES} bytes)",
+                    f"{status} from {current}; stopping after retries",
                     status_code=status,
                 )
 
+            body = _read_body_limited(response)
             return LiveResponse(
                 url=url,
-                final_url=str(response.url),
+                final_url=current,
                 status_code=status,
                 content=body,
-                content_type=response.headers.get("content-type"),
+                content_type=content_type,
                 retrieved_at=datetime.now(UTC),
-                etag=response.headers.get("etag"),
-                last_modified=response.headers.get("last-modified"),
+                etag=etag,
+                last_modified=last_modified,
                 elapsed_seconds=time.monotonic() - started,
             )
