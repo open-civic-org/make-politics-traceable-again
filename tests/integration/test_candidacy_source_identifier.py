@@ -96,9 +96,7 @@ def test_external_id_maps_to_candidacy_not_person_pk(db_session) -> None:
     assert csi.identifier_type == "CANDIDATE_ID"
     assert csi.source_system == "RESULTS_PORTAL"
 
-    candidacy = lookup_candidacy_by_external_id(
-        session, external_value_raw="ECI-DEMO-CAND-001"
-    )
+    candidacy = lookup_candidacy_by_external_id(session, external_value_raw="ECI-DEMO-CAND-001")
     assert candidacy is not None
     assert candidacy.candidacy_id == csi.candidacy_id
     person = session.get(Person, candidacy.person_id)

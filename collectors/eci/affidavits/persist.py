@@ -118,10 +118,7 @@ def resolve_person_and_election(
         if narrowed is None:
             raise LinkageError(
                 "IDENTITY_REVIEW_REQUIRED",
-                (
-                    f"ambiguous person match ({len(matches)}) "
-                    f"for {normalized.candidate_name_raw!r}"
-                ),
+                (f"ambiguous person match ({len(matches)}) for {normalized.candidate_name_raw!r}"),
             )
         return narrowed
     person = matches[0]
