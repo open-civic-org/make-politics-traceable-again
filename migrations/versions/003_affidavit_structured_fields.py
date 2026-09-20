@@ -27,8 +27,12 @@ def upgrade() -> None:
         "fk_affidavit_candidacy_id", "affidavit", "candidacy", ["candidacy_id"], ["candidacy_id"]
     )
 
-    op.add_column("education_declaration", sa.Column("declared_value_raw", sa.Text(), nullable=True))
-    op.add_column("education_declaration", sa.Column("normalized_level", sa.String(64), nullable=True))
+    op.add_column(
+        "education_declaration", sa.Column("declared_value_raw", sa.Text(), nullable=True)
+    )
+    op.add_column(
+        "education_declaration", sa.Column("normalized_level", sa.String(64), nullable=True)
+    )
     op.add_column("education_declaration", sa.Column("institution_raw", sa.Text(), nullable=True))
     op.add_column("education_declaration", sa.Column("year_raw", sa.String(32), nullable=True))
     op.add_column("education_declaration", sa.Column("field_status", sa.String(32), nullable=True))
@@ -46,13 +50,17 @@ def upgrade() -> None:
         sa.Column("is_derived", sa.Boolean(), nullable=False, server_default=sa.text("false")),
     )
 
-    op.add_column("criminal_case_declaration", sa.Column("case_number_raw", sa.Text(), nullable=True))
+    op.add_column(
+        "criminal_case_declaration", sa.Column("case_number_raw", sa.Text(), nullable=True)
+    )
     op.add_column("criminal_case_declaration", sa.Column("court_raw", sa.Text(), nullable=True))
     op.add_column("criminal_case_declaration", sa.Column("act_raw", sa.Text(), nullable=True))
     op.add_column("criminal_case_declaration", sa.Column("section_raw", sa.Text(), nullable=True))
     op.add_column("criminal_case_declaration", sa.Column("status_raw", sa.Text(), nullable=True))
     op.add_column("criminal_case_declaration", sa.Column("date_raw", sa.String(64), nullable=True))
-    op.add_column("criminal_case_declaration", sa.Column("field_status", sa.String(32), nullable=True))
+    op.add_column(
+        "criminal_case_declaration", sa.Column("field_status", sa.String(32), nullable=True)
+    )
 
     op.create_table(
         "review_item",
@@ -67,7 +75,12 @@ def upgrade() -> None:
         sa.Column("archived_path", sa.Text(), nullable=True),
         sa.Column("parser_version", sa.String(64), nullable=True),
         sa.Column("status", sa.String(32), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["source_id"], ["source_document.source_id"]),
         sa.ForeignKeyConstraint(["affidavit_id"], ["affidavit.affidavit_id"]),
         sa.PrimaryKeyConstraint("review_id"),

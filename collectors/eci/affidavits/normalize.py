@@ -154,8 +154,7 @@ def _normalize_education_level(raw: str) -> EducationLevel:
     if any(x in t for x in ("ph.d", "phd", "doctorate", "doctoral")):
         return EducationLevel.DOCTORATE
     if any(
-        x in t
-        for x in ("post graduate", "postgraduate", "m.a", "m.sc", "mba", "m.tech", "ll.m")
+        x in t for x in ("post graduate", "postgraduate", "m.a", "m.sc", "mba", "m.tech", "ll.m")
     ):
         return EducationLevel.POSTGRADUATE
     if any(
