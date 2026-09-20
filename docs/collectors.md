@@ -29,3 +29,7 @@ See [identity-resolution.md](identity-resolution.md). External ECI IDs map throu
 ## Live ECI results canary
 
 See [eci-live-results.md](eci-live-results.md). Live networking is **off** unless `MPTA_ECI_LIVE_ENABLED=true` and `--confirm-live` are both set. CI remains fully offline (MockTransport).
+
+## ECI statistical-report capture
+
+See [eci-statistical-report-acquisition.md](eci-statistical-report-acquisition.md). Manual `workflow_dispatch` only; gated by `MPTA_ECI_STAT_REPORT_LIVE_ENABLED` + `--confirm-live`. Capture archives exact bytes and does not mutate canonical Person/Candidacy/ElectionResult rows.

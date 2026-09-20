@@ -24,6 +24,12 @@ class Settings(BaseSettings):
         default=False,
         validation_alias=AliasChoices("MPTA_ECI_LIVE_ENABLED", "eci_live_enabled"),
     )
+    eci_stat_report_live_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "MPTA_ECI_STAT_REPORT_LIVE_ENABLED", "eci_stat_report_live_enabled"
+        ),
+    )
 
 
 @lru_cache
