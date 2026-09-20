@@ -1,0 +1,137 @@
+name: ECI Statistical Report Capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      report_url:
+        description: Official HTTPS ECI statistical-report download URL (required)
+        required: true
+        type: string
+      report_number:
+        description: Positive integer report number (1–9999), e.g. 33
+        required: true
+        type: string
+      report_title:
+        description: Report title (e.g. Constituency Wise Detailed Result)
+        required: true
+        type: string
+      election_year:
+        description: Election year
+        required: true
+        type: string
+        default: "2024"
+      election_type:
+        description: Election type
+        required: true
+        type: string
+        default: LOK_SABHA
+
+concurrency:
+  group: eci-statistical-report-capture
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Capture official report
+        id: capture
+        env:
+          ECI_REPORT_URL: ${{ inputs.report_url }}
+          ECI_REPORT_NUMBER: ${{ inputs.report_number }}
+          ECI_REPORT_TITLE: ${{ inputs.report_title }}
+          ECI_ELECTION_YEAR: ${{ inputs.election_year }}
+          ECI_ELECTION_TYPE: ${{ inputs.election_type }}
+          MPTA_ECI_STAT_REPORT_LIVE_ENABLED: "true"
+          MPTA_GIT_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p data/raw
+          uv run python -m collectors.eci.statistical_reports.cli capture \
+            --url "$ECI_REPORT_URL" \
+            --report-number "$ECI_REPORT_NUMBER" \
+            --report-title "$ECI_REPORT_TITLE" \
+            --election-year "$ECI_ELECTION_YEAR" \
+            --election-type "$ECI_ELECTION_TYPE" \
+            --confirm-live \
+            --raw-root data/raw \
+            | tee capture-output.json
+
+          python3 - <<'PY'
+          import json, pathlib, os
+          report = json.loads(pathlib.Path("capture-output.json").read_text())
+          archive = report.get("archive_dir")
+          artifact = report.get("artifact_name") or "eci-statistical-report-capture"
+          outcome = report.get("outcome")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"outcome={outcome}\n")
+              fh.write(f"artifact_name={artifact}\n")
+              fh.write(f"archive_dir={archive or ''}\n")
+              fh.write(f"sha256={report.get('sha256') or ''}\n")
+          if outcome != "SUCCESS":
+              raise SystemExit(f"capture failed: {report.get('error') or outcome}")
+          PY
+
+      - name: Upload capture artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.capture.outputs.artifact_name }}
+          path: ${{ steps.capture.outputs.archive_dir }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Write job summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          path = pathlib.Path("capture-output.json")
+          if not path.exists():
+              summary = "Capture did not produce capture-output.json\n"
+          else:
+              r = json.loads(path.read_text())
+              lines = [
+                  "## ECI Statistical Report Capture",
+                  "",
+                  f"- **outcome**: `{r.get('outcome')}`",
+                  f"- **source status**: `{r.get('source_status')}`",
+                  f"- **report number**: `{r.get('report_number')}`",
+                  f"- **report title**: {r.get('report_title')}",
+                  f"- **election year**: `{r.get('election_year')}`",
+                  f"- **election type**: `{r.get('election_type')}`",
+                  f"- **requested URL**: `{r.get('requested_url')}`",
+                  f"- **final URL**: `{r.get('final_url')}`",
+                  f"- **HTTP status**: `{r.get('http_status')}`",
+                  f"- **detected format**: `{r.get('detected_container_format')}`",
+                  f"- **bytes**: `{r.get('bytes_downloaded')}`",
+                  f"- **SHA-256**: `{r.get('sha256')}`",
+                  f"- **artifact name**: `{r.get('artifact_name')}`",
+                  f"- **error**: `{r.get('error')}`",
+                  "",
+                  "> GitHub Actions artifact retention is temporary (30 days).",
+                  "> It is **not** the permanent evidence archive.",
+                  "",
+              ]
+              summary = "\n".join(lines)
+          pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(summary, encoding="utf-8")
+          PY
