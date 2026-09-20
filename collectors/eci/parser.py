@@ -54,6 +54,9 @@ def parse_eci_result_json(data: dict[str, Any]) -> ParsedElection:
                 vote_share_percent=_decimal_or_none(row.get("voteSharePercent")),
                 rank=int(row["rank"]) if row.get("rank") is not None else None,
                 result=str(row["result"]).strip().upper() if row.get("result") else None,
+                source_candidate_id=(
+                    str(row["eciCandidateId"]).strip() if row.get("eciCandidateId") else None
+                ),
             )
         )
 

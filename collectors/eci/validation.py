@@ -35,6 +35,7 @@ def validate_election(normalized: NormalizedElection) -> NormalizedElection:
                     f"vote_share out of range for {c.candidate_name_raw!r}: {c.vote_share}"
                 )
 
+    ranks_present = any(c.rank is not None for c in normalized.candidates)
     if len(rank_ones) > 1:
         errors.append(f"multiple rank=1 candidates: {len(rank_ones)}")
     if len(winners) > 1:
@@ -45,7 +46,9 @@ def validate_election(normalized: NormalizedElection) -> NormalizedElection:
         and rank_ones[0].candidate_name_normalized != winners[0].candidate_name_normalized
     ):
         errors.append("rank=1 candidate does not match WON result")
-    if winners and not rank_ones:
+    # Rank is optional when the source does not publish it; only require rank=1
+    # when at least one candidate carries an explicit rank.
+    if winners and ranks_present and not rank_ones:
         errors.append("WON present but no rank=1")
 
     if errors:

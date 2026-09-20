@@ -4,7 +4,7 @@ Constituency: Demo Nagar
 State: Rajasthan
 Election Year: 2024
 Election Type: LOK_SABHA
-Source Candidate Id:
+Source Candidate Id: ECI-DEMO-CAND-001
 
 === EDUCATION ===
 - Qualification: Bachelor of Engineering

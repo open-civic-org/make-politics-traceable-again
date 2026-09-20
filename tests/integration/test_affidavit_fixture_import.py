@@ -436,7 +436,11 @@ def test_ambiguous_candidacies_require_identity_review(db_session) -> None:
 
     fixture = tmp_path / "no_pc.txt"
     text = AFFIDAVIT_FIXTURE.read_text(encoding="utf-8")
-    text = "\n".join(line for line in text.splitlines() if not line.startswith("Constituency:"))
+    text = "\n".join(
+        line
+        for line in text.splitlines()
+        if not line.startswith("Constituency:") and not line.startswith("Source Candidate Id:")
+    )
     fixture.write_text(text + "\n", encoding="utf-8")
 
     c = _run_affidavit(session, tmp_path, fixture)

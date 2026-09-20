@@ -1,0 +1,11 @@
+source_authority: Election Commission of India
+source_type: ELECTION_RESULT
+format: html_candidateswise_sanitized
+capture_date: 2026-09-20
+election_year: 2024
+sanitized: true
+purpose: Offline parser regression for ECI candidateswise HTML (synthetic Demo Nagar)
+live_network: false
+notes: |
+  Structure mirrors observed ECI candidateswise pages (won/lost + votes + name + party).
+  Content is fictional. Not a live download.

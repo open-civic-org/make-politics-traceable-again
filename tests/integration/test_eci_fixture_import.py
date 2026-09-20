@@ -105,6 +105,9 @@ def test_eci_fixture_import_idempotent(db_session) -> None:
     assert src is not None
     assert src.content_sha256
     assert src.collector_name == "eci_election_results"
+    assert src.parser_version == "ECI_FIXTURE_JSON_PARSER_V1"
+    assert src.extraction_method == "fixture_json"
+    assert src.extraction_confidence is None
     assert src.git_commit_sha == "fixture-test-sha"
     assert src.archived_path
 

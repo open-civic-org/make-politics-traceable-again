@@ -1,0 +1,19 @@
+canary:
+  election: LOK_SABHA_2024
+  election_type: LOK_SABHA
+  election_year: 2024
+  notes: |
+    Explicit URLs on results.eci.gov.in only — no discovery crawl.
+
+    1) Portal root: confirms live HTTPS reachability. The page is a meta-refresh
+       stub pointing at ResultAcByeAugust2026; we deliberately do NOT follow or
+       configure that active/counting surface for Milestone 4.
+
+    2) Historical Lok Sabha 2024 index path preferred by the data model. Preflight
+       observed HTTP 404 from this environment; capture the status and stop
+       expanding scope — do not invent alternate pages.
+
+    Persist is refused unless an archived page passes layout validation.
+  urls:
+    - https://results.eci.gov.in/
+    - https://results.eci.gov.in/PcResultGenJune2024/index.htm
