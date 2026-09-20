@@ -17,6 +17,10 @@ manual GitHub Action / CLI capture
 
 This repository does **not** schedule downloads or crawl ECI.
 
+**GitHub Actions artifact retention (30 days) is temporary V1 transport only.**
+It is **not** the permanent evidence archive. Durable multi-year storage requires
+later R2/S3-compatible object storage.
+
 ## Relation to live results canary
 
 The Milestone 4 canary targets `results.eci.gov.in` only and remains unchanged.

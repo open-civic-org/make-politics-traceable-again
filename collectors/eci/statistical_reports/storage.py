@@ -20,7 +20,7 @@ class StoredCapture:
     payload_path: Path
     metadata_path: Path
     sha256: str
-    source_status: str  # INSERTED | UNCHANGED | SOURCE_CHANGED
+    source_status: str  # FIRST_OBSERVATION | UNCHANGED | SOURCE_CHANGED
 
 
 class CaptureStorage(Protocol):

@@ -16,6 +16,7 @@ from typing import Any
 
 from collectors.base.archive import archive_raw, build_raw_from_bytes
 from collectors.base.git import get_git_commit_sha
+from collectors.eci.statistical_reports.format_detect import detect_container_format
 from collectors.eci.statistical_reports.http_client import (
     ALLOWED_HOSTS,
     MAX_HTTP_ATTEMPTS,
@@ -37,15 +38,13 @@ SOURCE_AUTHORITY = "Election Commission of India"
 SOURCE_TYPE = "ELECTION_STATISTICAL_REPORT"
 CAPTURE_METHOD = "GITHUB_ACTION_WORKFLOW_DISPATCH"
 
-OLE_MAGIC = b"\xd0\xcf\x11\xe0"
-ZIP_MAGIC = b"PK"
-HTML_MARKERS = (b"<!doctype html", b"<html", b"<head", b"<body", b"<table")
-
 
 @dataclass
 class CaptureReport:
     outcome: str  # SUCCESS | CAPTURE_REJECTED | FAILED
-    source_status: str | None = None  # INSERTED | UNCHANGED | SOURCE_CHANGED
+    # FIRST_OBSERVATION = no prior state in this archive root (typical GHA runner).
+    # UNCHANGED / SOURCE_CHANGED only when prior metadata exists under raw_root.
+    source_status: str | None = None
     requested_url: str | None = None
     final_url: str | None = None
     http_status: int | None = None
@@ -95,20 +94,6 @@ class CaptureReport:
         }
 
 
-def detect_container_format(data: bytes) -> tuple[str | None, str | None]:
-    """Return (format, rejection_reason). format is xls|xlsx|None."""
-    if not data:
-        return None, "empty payload"
-    head = data[:512].lstrip().lower()
-    if any(marker in head for marker in HTML_MARKERS):
-        return None, "HTML content masquerading as workbook"
-    if data.startswith(OLE_MAGIC):
-        return "xls", None
-    if data.startswith(ZIP_MAGIC):
-        return "xlsx", None
-    return None, "unsupported binary format"
-
-
 def logical_source_key(
     *,
     election_type: str,
@@ -149,10 +134,10 @@ def _find_prior_observation(
 
 
 def _extension_for_format(fmt: str | None) -> str:
-    if fmt == "xls":
-        return "xls"
     if fmt == "xlsx":
         return "xlsx"
+    if fmt == "OLE_CFB":
+        return "ole"
     return "bin"
 
 
@@ -193,7 +178,8 @@ class LocalArchiveCaptureStorage:
         elif prior and prior.get("sha256") and prior.get("sha256") != sha:
             source_status = "SOURCE_CHANGED"
         else:
-            source_status = "INSERTED"
+            # No durable prior under this raw_root (fresh GHA runners hit this path).
+            source_status = "FIRST_OBSERVATION"
 
         meta = dict(metadata)
         meta["logical_source_key"] = logical_key

@@ -10,7 +10,7 @@ manual workflow_dispatch
   → validate URL / host allowlist
   → guarded HTTPS download (exact bytes)
   → immutable raw archive + SHA-256 + metadata
-  → upload GitHub Actions artifact
+  → upload GitHub Actions artifact (temporary V1 transport)
 ```
 
 No Person / Candidacy / ElectionResult mutation occurs in this workflow.
@@ -72,18 +72,33 @@ MAX_REPORT_BYTES = 50_000_000
 
 403 / 429 → stop (no bypass). Every attempt (redirect / timeout / 5xx retry) consumes budget.
 
+## Format detection
+
+Do not trust URL extension / Content-Type alone. Capture inspects bytes:
+
+```text
+HTML markers                         → CAPTURE_REJECTED
+OOXML ZIP with [Content_Types].xml
+  + xl/workbook.xml                  → xlsx
+generic / incomplete / corrupt ZIP   → CAPTURE_REJECTED
+OLE/CFB magic (D0 CF 11 E0…)         → OLE_CFB  (not asserted as Excel)
+```
+
+OLE compound files are archived as `payload.ole` with `detected_container_format=OLE_CFB`
+until a later workbook extractor proves Excel content.
+
 ## Archive layout
 
 ```text
 data/raw/eci/statistical_reports/report_<number>/<election_year>/<artifact-id>/
-  payload.xls|xlsx
+  payload.xlsx|ole|bin
   metadata.json
   capture_report.json
 ```
 
 Exact downloaded bytes are archived (never Excel resave / CSV conversion before archive).
 
-## SOURCE_CHANGED
+## Source status (local archive root only)
 
 Logical key:
 
@@ -91,12 +106,36 @@ Logical key:
 Election Commission of India | election_type | election_year | report_number
 ```
 
-Same SHA → `UNCHANGED`. Different SHA → `SOURCE_CHANGED` (both observations preserved).
+When the **same persistent `raw_root`** already contains a prior observation:
+
+```text
+same SHA       → UNCHANGED
+different SHA  → SOURCE_CHANGED   (both observations preserved)
+```
+
+When **no prior state** exists under `raw_root` (typical fresh GitHub-hosted runner):
+
+```text
+FIRST_OBSERVATION
+```
+
+GitHub Actions artifacts are **not** restored onto later runners. Cross-run
+`UNCHANGED` / `SOURCE_CHANGED` is therefore **not** available in V1 workflow runs.
+True durable comparison requires later persistent storage (R2 / S3-compatible / DB
+source-observation registry).
 
 ## Persistence decision (V1)
 
-The GitHub workflow persists **immutable acquisition artifacts only** (local archive on the
-runner + `actions/upload-artifact@v4`). It does **not** open a database connection.
+The GitHub workflow persists acquisition outputs as:
+
+1. an immutable archive directory on the ephemeral runner, then
+2. `actions/upload-artifact@v4` with **`retention-days: 30`**.
+
+**The GitHub Actions artifact is NOT the permanent evidence archive.** After 30 days
+it may no longer be available. Bytes are immutable while stored; multi-year durability
+requires the later object-storage milestone.
+
+The workflow does **not** open a database connection and does not mutate canonical rows.
 
 Future object storage (R2/S3/GCS) should implement the `CaptureStorage` protocol in
 `collectors/eci/statistical_reports/storage.py` without changing capture policy.
@@ -107,5 +146,7 @@ Future object storage (R2/S3/GCS) should implement the `CaptureStorage` protocol
 - `permissions: contents: read`
 - concurrency group `eci-statistical-report-capture` (`cancel-in-progress: false`)
 - live env flag set only in the capture step
+- workflow_dispatch inputs are mapped via step `env:` and passed as quoted shell
+  variables (`$ECI_REPORT_*`) — never interpolated into shell source with `${{ inputs.* }}`
 
 Do not print workbook bodies, cookies, or secrets in logs.

@@ -25,11 +25,6 @@ on:
         required: true
         type: string
         default: LOK_SABHA
-      capture_only:
-        description: Capture-only (V1 always captures without canonical mutation)
-        required: false
-        type: boolean
-        default: true
 
 concurrency:
   group: eci-statistical-report-capture
@@ -58,17 +53,22 @@ jobs:
       - name: Capture official report
         id: capture
         env:
+          ECI_REPORT_URL: ${{ inputs.report_url }}
+          ECI_REPORT_NUMBER: ${{ inputs.report_number }}
+          ECI_REPORT_TITLE: ${{ inputs.report_title }}
+          ECI_ELECTION_YEAR: ${{ inputs.election_year }}
+          ECI_ELECTION_TYPE: ${{ inputs.election_type }}
           MPTA_ECI_STAT_REPORT_LIVE_ENABLED: "true"
           MPTA_GIT_COMMIT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           mkdir -p data/raw
           uv run python -m collectors.eci.statistical_reports.cli capture \
-            --url "${{ inputs.report_url }}" \
-            --report-number "${{ inputs.report_number }}" \
-            --report-title "${{ inputs.report_title }}" \
-            --election-year "${{ inputs.election_year }}" \
-            --election-type "${{ inputs.election_type }}" \
+            --url "$ECI_REPORT_URL" \
+            --report-number "$ECI_REPORT_NUMBER" \
+            --report-title "$ECI_REPORT_TITLE" \
+            --election-year "$ECI_ELECTION_YEAR" \
+            --election-type "$ECI_ELECTION_TYPE" \
             --confirm-live \
             --raw-root data/raw \
             | tee capture-output.json
@@ -127,6 +127,9 @@ jobs:
                   f"- **SHA-256**: `{r.get('sha256')}`",
                   f"- **artifact name**: `{r.get('artifact_name')}`",
                   f"- **error**: `{r.get('error')}`",
+                  "",
+                  "> GitHub Actions artifact retention is temporary (30 days).",
+                  "> It is **not** the permanent evidence archive.",
                   "",
               ]
               summary = "\n".join(lines)
