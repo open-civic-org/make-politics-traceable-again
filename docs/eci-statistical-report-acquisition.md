@@ -165,8 +165,10 @@ Do not print workbook bodies, cookies, or secrets in logs.
 
 ## Related: OGD CSV primary path (2024 Report 33)
 
-While ECI XLS returns HTTP 406 from automated clients, Milestone 5 uses the
-data.gov.in CSV distribution as the primary archive. See
+While an **attempted** ECI Report 33 XLS path returned HTTP 406 from ECI
+edge/WAF on automated clients, Milestone 5 uses the data.gov.in CSV
+distribution corresponding to the ECI Constituency-wise Detailed Result
+report as the primary archive. See
 [ogd-constituency-wise-detailed-result-2024.md](ogd-constituency-wise-detailed-result-2024.md).
-This workflow remains the official-host XLS provenance tool and must not be
-used to bypass WAF controls.
+This workflow remains an official-host workbook provenance tool (use only a
+verified download href) and must not be used to bypass WAF controls.

@@ -4,9 +4,12 @@ Historical election-result workbooks published by the Election Commission of Ind
 
 ## 2024 Lok Sabha Report 33 — primary path
 
-**ECI XLS is currently blocked (HTTP 406 / AppTrana)** from GitHub Actions and
-typical automated clients. Milestone 5 therefore uses the **data.gov.in CSV**
-distribution of the same ECI-sourced dataset as the primary ingestion source.
+An attempted ECI Report 33 XLS path returned **HTTP 406 from ECI edge/WAF**
+from GitHub Actions and typical automated clients. Milestone 5 therefore uses
+the **data.gov.in CSV** distribution corresponding to the ECI
+Constituency-wise Detailed Result statistical report (OGD: sourced from ECI)
+as the primary ingestion source. Byte/schema identity with any ECI workbook
+has **not** been verified.
 
 See [ogd-constituency-wise-detailed-result-2024.md](ogd-constituency-wise-detailed-result-2024.md).
 
@@ -21,8 +24,9 @@ TERTIARY:  independent scrapes (forensic only)
 
 See [eci-statistical-report-acquisition.md](eci-statistical-report-acquisition.md).
 
-The GitHub Action remains available for official-host workbook capture when the
-ECI CDN allows it. It does **not** block CSV-based staging.
+The GitHub Action remains available for official-host workbook capture when a
+**verified** ECI download href is available and the edge allows it. It does
+**not** block CSV-based staging.
 
 Capture is a **separate layer** from parsing/staging:
 

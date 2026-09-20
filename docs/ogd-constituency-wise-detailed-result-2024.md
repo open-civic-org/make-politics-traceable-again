@@ -1,16 +1,18 @@
 # 2024 Lok Sabha constituency-wise results — source plan
 
-## Decision (post ECI XLS 406)
+## Decision (post attempted ECI XLS 406)
 
-The official ECI statistical-report XLS for Report 33
-(`…/GE-2024-statistical-report/33-Constituency-Wise-Detailed-Result.xls`)
-returns **HTTP 406** (AppTrana WAF) from both local probes and GitHub-hosted
-runners. See workflow run:
+An **attempted** ECI Report 33 XLS path (inferred from the published GE-2024
+statistical-report file layout; **not** copied from a verified download href)
+returned **HTTP 406 from ECI edge/WAF** from both local probes and a
+GitHub-hosted runner. See workflow run:
 
 https://github.com/open-civic-org/make-politics-traceable-again/actions/runs/35534730905
 
 That does **not** block Milestone 5. Prefer the Government of India Open
-Government Data (OGD) distribution of the same ECI-sourced dataset.
+Government Data (OGD) CSV distribution corresponding to the ECI
+Constituency-wise Detailed Result statistical report (OGD metadata: sourced
+from ECI). We have **not** compared inaccessible ECI workbook bytes to the CSV.
 
 ## Primary source (Milestone 5)
 
@@ -36,12 +38,22 @@ election_type            = LOK_SABHA
 election_year            = 2024
 ```
 
-Retain **both** URLs in provenance when known:
+URLs to retain in provenance:
 
 ```text
-distribution_url  = https://www.data.gov.in/resource/constituency-wise-detailed-result-during-2024
-eci_xls_url       = https://www.eci.gov.in/eci-backend/public/all_files/GE-2024-statistical-report/33-Constituency-Wise-Detailed-Result.xls
+distribution_url =
+  https://www.data.gov.in/resource/constituency-wise-detailed-result-during-2024
+
+eci_reference_url =
+  https://www.eci.gov.in/general-election-to-loksabha-2024-statistical-reports
+
+eci_attempted_xls_url =
+  https://www.eci.gov.in/eci-backend/public/all_files/GE-2024-statistical-report/33-Constituency-Wise-Detailed-Result.xls
 ```
+
+`eci_attempted_xls_url` is an **attempted acquisition URL** (inferred path that
+returned HTTP 406). It is **not** a verified canonical ECI distribution href.
+`eci_reference_url` is the ECI landing/reference page for 2024 statistical reports.
 
 ### Acquisition procedure (V1)
 
@@ -53,9 +65,11 @@ attempt login bypass.
 1. Human: sign in to data.gov.in in a normal browser
 2. Download the CSV for “Constituency-wise Detailed Result during 2024”
 3. Do not open/resave in Excel; preserve exact bytes
-4. Compute SHA-256
+4. Before opening elsewhere: record original filename, byte size,
+   UTC retrieval time, resource URL, SHA-256
 5. Place under immutable archive (same archive framework as ECI capture)
-6. Record metadata (authorities, both URLs, retrieved_at, sha256, size)
+6. Record metadata (authorities, distribution + ECI reference URLs,
+   optional attempted XLS URL labeled as such, retrieved_at, sha256, size)
 7. Offline parser builds from that exact file + fixture derived from it
 ```
 
@@ -79,7 +93,10 @@ data/raw/ogd/statistical_reports/report_33/2024/<artifact-id>/
 
 Keep `.github/workflows/eci-statistical-report-capture.yml` as an official-host
 provenance tool. It remains `workflow_dispatch` only. It must **not** gate
-Milestone 5 while WAF 406 persists. Do not add header-spoofing / WAF bypass.
+Milestone 5 while automated ECI workbook fetch returns HTTP 406. Do not add
+header-spoofing / WAF bypass. Only use a verified XLS download href (copied
+from ECI UI) when one is available — never promote an inferred path to
+canonical `distribution_url`.
 
 ## Parser implication
 
