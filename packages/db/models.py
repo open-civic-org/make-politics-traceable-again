@@ -270,6 +270,48 @@ class Candidacy(Base):
     party: Mapped[Party | None] = relationship()
     source: Mapped[SourceDocument] = relationship()
     result: Mapped[ElectionResult | None] = relationship(back_populates="candidacy", uselist=False)
+    source_identifiers: Mapped[list[CandidacySourceIdentifier]] = relationship(
+        back_populates="candidacy"
+    )
+
+
+class CandidacySourceIdentifier(Base):
+    """
+    External source identifier attached to a candidacy (never an internal Person PK).
+
+    Uniqueness scope (documented):
+      (source_authority, source_system, identifier_type, external_value_raw, election_id)
+    identifies at most one candidacy. ECI IDs are not assumed globally permanent across
+    elections; election_id is part of the unique key.
+    """
+
+    __tablename__ = "candidacy_source_identifier"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_authority",
+            "source_system",
+            "identifier_type",
+            "external_value_raw",
+            "election_id",
+            name="uq_csi_authority_system_type_value_election",
+        ),
+    )
+
+    identifier_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    candidacy_id: Mapped[str] = mapped_column(ForeignKey("candidacy.candidacy_id"), nullable=False)
+    election_id: Mapped[str] = mapped_column(ForeignKey("election.election_id"), nullable=False)
+    source_authority: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_system: Mapped[str] = mapped_column(String(64), nullable=False)
+    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    external_value_raw: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    candidacy: Mapped[Candidacy] = relationship(back_populates="source_identifiers")
+    election: Mapped[Election] = relationship()
+    source: Mapped[SourceDocument] = relationship()
 
 
 class ElectionResult(Base):
