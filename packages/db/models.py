@@ -12,6 +12,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -513,3 +514,80 @@ class ReviewItem(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class EciElectionResultSourceRecord(Base):
+    """Staging row for ECI Statistical Report 33 (and similar) workbook imports.
+
+    Read-only identity link to candidacy when exactly one match exists.
+    Never mutates Person / Candidacy / ElectionResult.
+    """
+
+    __tablename__ = "eci_election_result_source_record"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_id",
+            "sheet_name",
+            "source_row_number",
+            name="uq_eci_stat_source_sheet_row",
+        ),
+        Index("ix_eci_stat_election_year_type", "election_year", "election_type"),
+        Index("ix_eci_stat_identity_status", "identity_status"),
+        Index("ix_eci_stat_source_sha256", "source_sha256"),
+    )
+
+    record_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
+    source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    report_number: Mapped[str] = mapped_column(String(32), nullable=False)
+    report_title: Mapped[str] = mapped_column(String(256), nullable=False)
+    election_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    election_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    sheet_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_row_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    state_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    state_normalized: Mapped[str] = mapped_column(String(256), nullable=False)
+    constituency_number_raw: Mapped[str | None] = mapped_column(String(64))
+    constituency_name_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    constituency_name_normalized: Mapped[str] = mapped_column(String(256), nullable=False)
+    candidate_name_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    candidate_name_normalized: Mapped[str] = mapped_column(String(256), nullable=False)
+    party_name_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    party_name_normalized: Mapped[str] = mapped_column(String(256), nullable=False)
+    gender_raw: Mapped[str | None] = mapped_column(String(64))
+    age_raw: Mapped[str | None] = mapped_column(String(64))
+    category_raw: Mapped[str | None] = mapped_column(String(64))
+    symbol_raw: Mapped[str | None] = mapped_column(Text)
+    votes_raw: Mapped[str | None] = mapped_column(Text)
+    votes_value: Mapped[int | None] = mapped_column(BigInteger)
+    vote_share_raw: Mapped[str | None] = mapped_column(Text)
+    vote_share_value: Mapped[Decimal | None] = mapped_column(Numeric(8, 4))
+    votes_general_raw: Mapped[str | None] = mapped_column(Text)
+    votes_general_value: Mapped[int | None] = mapped_column(BigInteger)
+    votes_postal_raw: Mapped[str | None] = mapped_column(Text)
+    votes_postal_value: Mapped[int | None] = mapped_column(BigInteger)
+    total_electors_raw: Mapped[str | None] = mapped_column(Text)
+    total_electors_value: Mapped[int | None] = mapped_column(BigInteger)
+    valid_votes_raw: Mapped[str | None] = mapped_column(Text)
+    valid_votes_value: Mapped[int | None] = mapped_column(BigInteger)
+    total_votes_polled_raw: Mapped[str | None] = mapped_column(Text)
+    total_votes_polled_value: Mapped[int | None] = mapped_column(BigInteger)
+    result_raw: Mapped[str | None] = mapped_column(String(64))
+    result_normalized: Mapped[str] = mapped_column(String(64), nullable=False, default="UNKNOWN")
+    rank: Mapped[int | None] = mapped_column(Integer)
+    source_candidate_id: Mapped[str | None] = mapped_column(String(256))
+    identity_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    identity_candidacy_id: Mapped[str | None] = mapped_column(ForeignKey("candidacy.candidacy_id"))
+    identity_notes: Mapped[str | None] = mapped_column(Text)
+    row_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+    raw_row_json: Mapped[str] = mapped_column(Text, nullable=False)
+    parser_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    collector_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    git_commit_sha: Mapped[str | None] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    source: Mapped[SourceDocument] = relationship()
+    identity_candidacy: Mapped[Candidacy | None] = relationship()

@@ -33,6 +33,7 @@ class IdPrefix(StrEnum):
     COLLECTOR_RUN = "RUN"
     REVIEW = "REV"
     CANDIDACY_SOURCE_ID = "CSI"
+    STAT_SRC_REC = "IND-SSR"
 
 
 def allocate_id(prefix: IdPrefix | str, sequence: int) -> str:
