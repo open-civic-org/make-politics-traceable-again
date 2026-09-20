@@ -60,11 +60,13 @@ uv run python scripts/run_eci_affidavit_fixture_import.py
 
 | Status | Meaning |
 |--------|---------|
-| `TEXT_EXTRACTED` | Machine-readable text available |
-| `OCR_REQUIRED` | Image/scanned; OCR not implemented — review queued |
+| `TEXT_EXTRACTED` | Machine-readable text available (plaintext or **pypdf** text layer) |
+| `OCR_REQUIRED` | Image / PDF with no extractable text — review queued |
 | `EXTRACTION_FAILED` | Read/decode failure — review queued |
 
-Unreadable documents **never** produce empty asset/education/case rows.
+PDF classification is by extraction result, not filename. Image extensions (`.png`, `.jpg`, …) imply `OCR_REQUIRED`. Unreadable documents **never** produce empty asset/education/case rows.
+
+Dependency: `pypdf` (declared in `pyproject.toml`).
 
 ## Linkage
 

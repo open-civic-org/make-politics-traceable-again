@@ -1,0 +1,10 @@
+source_authority: Election Commission of India
+source_type: CANDIDATE_AFFIDAVIT
+format: plaintext_form26_sections
+capture_date: 2026-09-19
+election_year: 2024
+sanitized: true
+purpose: PARSE_FAILED financial amount → FIELD_REVIEW_REQUIRED without zeroing
+live_network: false
+notes: |
+  TOTAL_ASSETS amount is intentionally unparseable.

@@ -1,3 +1,5 @@
+"""Persist normalized affidavits with required candidacy linkage and review queue."""
+
 from __future__ import annotations
 
 from collectors.base.artifacts import ArchivedArtifact
@@ -5,6 +7,7 @@ from collectors.base.collector import RunStats
 from collectors.eci.affidavits.schemas import (
     COLLECTOR_NAME,
     PARSER_VERSION,
+    FieldStatus,
     NormalizedAffidavit,
     ParseOutcome,
     ReviewItemDraft,
@@ -27,6 +30,12 @@ from packages.db.models import (
 from packages.shared.ids import IdPrefix, allocate_id, normalize_name
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+_REVIEWABLE_FIELD_STATUSES = {
+    FieldStatus.PARSE_FAILED,
+    FieldStatus.AMBIGUOUS,
+    FieldStatus.NEEDS_REVIEW,
+}
 
 
 class LinkageError(Exception):
@@ -52,40 +61,48 @@ def _next_seq(session: Session, model, id_attr: str) -> int:
 
 def resolve_person_and_election(
     session: Session, normalized: NormalizedAffidavit
-) -> tuple[Person, Election | None, Candidacy | None]:
+) -> tuple[Person, Election, Candidacy]:
     """
-    Link affidavit to Person via exact controlled match only.
-    Prefer source_candidate_id when it matches person_id; else exact normalized name
-    within election+constituency when exactly one candidacy matches.
+    Link affidavit to Person + Election + Candidacy via exact controlled match only.
+
+    Prefer source_candidate_id when it matches person_id; else exact normalized name.
+    A person match alone is never enough — candidacy and election must resolve uniquely.
     """
+    person: Person | None = None
     if normalized.source_candidate_id:
         person = session.get(Person, normalized.source_candidate_id)
-        if person is not None:
-            election, candidacy = _find_election_candidacy(session, person, normalized)
-            return person, election, candidacy
 
-    matches = session.scalars(
-        select(Person).where(Person.normalized_name == normalized.candidate_name_normalized)
-    ).all()
-    if len(matches) == 0:
-        raise LinkageError("IDENTITY_REVIEW_REQUIRED", "no person match for candidate name")
-    if len(matches) > 1:
-        # Try narrow by election+constituency candidacy
-        narrowed = _narrow_by_election(session, matches, normalized)
-        if narrowed is None:
-            raise LinkageError(
-                "IDENTITY_REVIEW_REQUIRED",
-                f"ambiguous person match ({len(matches)}) for {normalized.candidate_name_raw!r}",
-            )
-        return narrowed
-    person = matches[0]
+    if person is None:
+        matches = session.scalars(
+            select(Person).where(Person.normalized_name == normalized.candidate_name_normalized)
+        ).all()
+        if len(matches) == 0:
+            raise LinkageError("IDENTITY_REVIEW_REQUIRED", "no person match for candidate name")
+        if len(matches) > 1:
+            narrowed = _narrow_by_election(session, matches, normalized)
+            if narrowed is None:
+                raise LinkageError(
+                    "IDENTITY_REVIEW_REQUIRED",
+                    (
+                        f"ambiguous person match ({len(matches)}) "
+                        f"for {normalized.candidate_name_raw!r}"
+                    ),
+                )
+            return narrowed
+        person = matches[0]
+
     election, candidacy = _find_election_candidacy(session, person, normalized)
+    if election is None or candidacy is None:
+        raise LinkageError(
+            "IDENTITY_REVIEW_REQUIRED",
+            "person matched but election/candidacy could not be uniquely resolved",
+        )
     return person, election, candidacy
 
 
 def _narrow_by_election(
     session: Session, people: list[Person], normalized: NormalizedAffidavit
-) -> tuple[Person, Election | None, Candidacy | None] | None:
+) -> tuple[Person, Election, Candidacy] | None:
     if not normalized.election_year or not normalized.constituency_name_normalized:
         return None
     hits: list[tuple[Person, Election, Candidacy]] = []
@@ -109,6 +126,8 @@ def _find_election_candidacy(
     if normalized.election_year is None:
         if len(candidacies) == 1:
             el = session.get(Election, candidacies[0].election_id)
+            if el is None:
+                return None, None
             return el, candidacies[0]
         return None, None
 
@@ -180,7 +199,7 @@ def persist_affidavit(
     except LinkageError as exc:
         if exc.code == "IDENTITY_REVIEW_REQUIRED":
             source, _ = get_or_create_source(session, artifact, stats)
-            _add_review(
+            add_review(
                 session,
                 ReviewItemDraft(
                     review_type="IDENTITY_REVIEW_REQUIRED",
@@ -197,7 +216,7 @@ def persist_affidavit(
 
     source, source_status = get_or_create_source(session, artifact, stats)
     if source_status == "SOURCE_CHANGED":
-        _add_review(
+        add_review(
             session,
             ReviewItemDraft(
                 review_type="DOCUMENT_REVIEW_REQUIRED",
@@ -219,13 +238,11 @@ def persist_affidavit(
         stats.records_unchanged += 1
         return ParseOutcome.UNCHANGED
 
-    # Fall through: new observation (including SOURCE_CHANGED with new SHA)
-
     affidavit = Affidavit(
         affidavit_id=allocate_id(IdPrefix.AFFIDAVIT, _next_seq(session, Affidavit, "affidavit_id")),
         person_id=person.person_id,
-        election_id=election.election_id if election else None,
-        candidacy_id=candidacy.candidacy_id if candidacy else None,
+        election_id=election.election_id,
+        candidacy_id=candidacy.candidacy_id,
         original_document_url=artifact.source_url,
         local_archive_path=str(artifact.archive_dir),
         document_sha256=artifact.sha256,
@@ -292,6 +309,16 @@ def persist_affidavit(
             )
         )
         stats.records_inserted += 1
+        _maybe_queue_field_review(
+            session,
+            artifact,
+            source_id=source.source_id,
+            affidavit_id=affidavit.affidavit_id,
+            field=f"assets.{asset.asset_category}",
+            field_status=asset.field_status,
+            raw_text=asset.amount_raw,
+            page_number=asset.page_number,
+        )
 
     for li in normalized.liabilities:
         session.add(
@@ -311,6 +338,16 @@ def persist_affidavit(
             )
         )
         stats.records_inserted += 1
+        _maybe_queue_field_review(
+            session,
+            artifact,
+            source_id=source.source_id,
+            affidavit_id=affidavit.affidavit_id,
+            field="liabilities.amount",
+            field_status=li.field_status,
+            raw_text=li.amount_raw,
+            page_number=li.page_number,
+        )
 
     for case in normalized.cases:
         session.add(
@@ -353,9 +390,19 @@ def persist_affidavit(
             )
         )
         stats.records_inserted += 1
+        _maybe_queue_field_review(
+            session,
+            artifact,
+            source_id=source.source_id,
+            affidavit_id=affidavit.affidavit_id,
+            field="income.amount",
+            field_status=inc.field_status,
+            raw_text=inc.amount_raw,
+            page_number=None,
+        )
 
     if normalized.section_status.get("criminal_cases") == "NEEDS_REVIEW":
-        _add_review(
+        add_review(
             session,
             ReviewItemDraft(
                 review_type="FIELD_REVIEW_REQUIRED",
@@ -374,6 +421,34 @@ def persist_affidavit(
     return normalized.parse_outcome
 
 
+def _maybe_queue_field_review(
+    session: Session,
+    artifact: ArchivedArtifact,
+    *,
+    source_id: str,
+    affidavit_id: str,
+    field: str,
+    field_status: FieldStatus,
+    raw_text: str | None,
+    page_number: int | None,
+) -> None:
+    if field_status not in _REVIEWABLE_FIELD_STATUSES:
+        return
+    add_review(
+        session,
+        ReviewItemDraft(
+            review_type="FIELD_REVIEW_REQUIRED",
+            field=field,
+            reason=f"Financial field status {field_status.value}",
+            raw_text=raw_text,
+            page_number=page_number,
+        ),
+        source_id=source_id,
+        artifact=artifact,
+        affidavit_id=affidavit_id,
+    )
+
+
 def add_review(
     session: Session,
     draft: ReviewItemDraft,
@@ -381,38 +456,36 @@ def add_review(
     source_id: str,
     artifact: ArchivedArtifact,
     affidavit_id: str | None = None,
-) -> None:
-    _add_review(
-        session,
-        draft,
-        source_id=source_id,
-        artifact=artifact,
-        affidavit_id=affidavit_id,
+) -> ReviewItem:
+    """Create an OPEN review item, or return the existing equivalent open item."""
+    stmt = select(ReviewItem).where(
+        ReviewItem.source_id == source_id,
+        ReviewItem.review_type == draft.review_type,
+        ReviewItem.status == "OPEN",
     )
+    if draft.field is None:
+        stmt = stmt.where(ReviewItem.field_name.is_(None))
+    else:
+        stmt = stmt.where(ReviewItem.field_name == draft.field)
 
+    existing = session.scalars(stmt).first()
+    if existing is not None:
+        return existing
 
-def _add_review(
-    session: Session,
-    draft: ReviewItemDraft,
-    *,
-    source_id: str,
-    artifact: ArchivedArtifact,
-    affidavit_id: str | None = None,
-) -> None:
     rid = allocate_id(IdPrefix.REVIEW, _next_seq(session, ReviewItem, "review_id"))
-    session.add(
-        ReviewItem(
-            review_id=rid,
-            review_type=draft.review_type,
-            field_name=draft.field,
-            reason=draft.reason,
-            raw_text=draft.raw_text,
-            page_number=draft.page_number,
-            source_id=source_id,
-            affidavit_id=affidavit_id,
-            archived_path=str(artifact.archive_dir),
-            parser_version=PARSER_VERSION,
-            status="OPEN",
-        )
+    item = ReviewItem(
+        review_id=rid,
+        review_type=draft.review_type,
+        field_name=draft.field,
+        reason=draft.reason,
+        raw_text=draft.raw_text,
+        page_number=draft.page_number,
+        source_id=source_id,
+        affidavit_id=affidavit_id,
+        archived_path=str(artifact.archive_dir),
+        parser_version=PARSER_VERSION,
+        status="OPEN",
     )
+    session.add(item)
     session.flush()
+    return item

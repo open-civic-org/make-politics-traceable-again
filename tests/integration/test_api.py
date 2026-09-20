@@ -158,8 +158,13 @@ def test_get_source(client: TestClient) -> None:
     source_id = person["sources"][0]["source_id"]
     res = client.get(f"/api/v1/sources/{source_id}")
     assert res.status_code == 200
-    assert res.json()["source_id"] == source_id
-    assert res.json()["verification_status"] == "DEMO"
+    body = res.json()
+    assert body["source_id"] == source_id
+    assert body["verification_status"] == "DEMO"
+    assert "archived_path" not in body
+    assert body["content_sha256"]
+    assert body["source_authority"]
+    assert body["collector_name"] or body["parser_version"] or True
 
 
 def test_person_not_found(client: TestClient) -> None:

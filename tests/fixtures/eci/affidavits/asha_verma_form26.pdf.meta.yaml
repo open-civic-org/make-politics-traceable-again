@@ -1,0 +1,11 @@
+source_authority: Election Commission of India
+source_type: CANDIDATE_AFFIDAVIT
+format: pdf
+capture_date: 2026-09-19
+election_year: 2024
+sanitized: true
+purpose: Machine-readable PDF regression for pypdf extraction → parser
+live_network: false
+notes: |
+  Synthetic Form-26-shaped PDF with an embedded text layer (not a scanned image).
+  Content mirrors asha_verma_form26.txt. Not a live ECI download.

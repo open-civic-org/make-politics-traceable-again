@@ -3,27 +3,32 @@ from __future__ import annotations
 from pathlib import Path
 
 from collectors.eci.affidavits.schemas import ExtractedDocument, ExtractionStatus, TextBlock
+from pypdf import PdfReader
+
+_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".gif", ".webp", ".bmp"}
 
 
 def extract_document(path: Path) -> ExtractedDocument:
     """
     Extract machine-readable text from a fixture/document.
 
-    PDF OCR is not implemented; scanned/unreadable inputs return OCR_REQUIRED.
+    PDF OCR is not implemented; image inputs and PDFs without extractable text
+    return OCR_REQUIRED. PDF classification is by content extraction, not filename.
     """
     suffix = path.suffix.lower()
-    name = path.name.lower()
 
-    if "scanned" in name or "ocr_required" in name or suffix in {".png", ".jpg", ".jpeg", ".tif"}:
+    # Image extensions imply OCR (no text layer expected).
+    if suffix in _IMAGE_SUFFIXES:
         return ExtractedDocument(
             extraction_status=ExtractionStatus.OCR_REQUIRED,
             extraction_method="none",
-            warnings=["Document appears image-based; OCR not implemented in V1"],
+            warnings=["Image document; OCR not implemented in V1"],
         )
 
+    if suffix == ".pdf":
+        return _extract_pdf(path)
+
     try:
-        if suffix == ".pdf":
-            return _extract_pdf(path)
         raw = path.read_bytes()
         if b"\x00" in raw[:1024]:
             return ExtractedDocument(
@@ -55,7 +60,7 @@ def extract_document(path: Path) -> ExtractedDocument:
     pages = _split_pages(text)
     return ExtractedDocument(
         extraction_status=ExtractionStatus.TEXT_EXTRACTED,
-        extraction_method="plaintext" if suffix != ".pdf" else "pdf_text",
+        extraction_method="plaintext",
         pages=pages,
         full_text=text,
     )
@@ -74,19 +79,6 @@ def _split_pages(text: str) -> list[TextBlock]:
 
 
 def _extract_pdf(path: Path) -> ExtractedDocument:
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        # Fall back: if sibling .txt exists, use it; else OCR_REQUIRED
-        sibling = path.with_suffix(".txt")
-        if sibling.is_file():
-            return extract_document(sibling)
-        return ExtractedDocument(
-            extraction_status=ExtractionStatus.OCR_REQUIRED,
-            extraction_method="pypdf_missing",
-            warnings=["pypdf not installed; cannot extract PDF text"],
-        )
-
     try:
         reader = PdfReader(str(path))
         pages: list[TextBlock] = []
@@ -110,7 +102,13 @@ def _extract_pdf(path: Path) -> ExtractedDocument:
             pages=pages,
             full_text=full,
         )
-    except Exception as exc:  # noqa: BLE001
+    except OSError as exc:
+        return ExtractedDocument(
+            extraction_status=ExtractionStatus.EXTRACTION_FAILED,
+            extraction_method="pypdf",
+            warnings=[str(exc)],
+        )
+    except Exception as exc:  # noqa: BLE001 — corrupt/unsupported PDF payloads
         return ExtractedDocument(
             extraction_status=ExtractionStatus.EXTRACTION_FAILED,
             extraction_method="pypdf",

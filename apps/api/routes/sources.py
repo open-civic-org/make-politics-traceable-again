@@ -22,7 +22,6 @@ class SourceDetail(BaseModel):
     publication_date: date | None = None
     retrieved_at: datetime
     content_sha256: str | None = None
-    archived_path: str | None = None
     collector_name: str | None = None
     collector_version: str | None = None
     parser_version: str | None = None
@@ -46,7 +45,6 @@ def get_source(source_id: str, db: Session = Depends(get_db)) -> SourceDetail:
         publication_date=source.publication_date,
         retrieved_at=source.retrieved_at,
         content_sha256=source.content_sha256,
-        archived_path=source.archived_path,
         collector_name=source.collector_name,
         collector_version=source.collector_version,
         parser_version=source.parser_version,

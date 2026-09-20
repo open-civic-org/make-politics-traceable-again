@@ -77,3 +77,14 @@ def test_scanned_requires_ocr() -> None:
     doc = extract_document(FIXTURES / "scanned_ocr_required.bin")
     assert doc.extraction_status == ExtractionStatus.OCR_REQUIRED
     assert not doc.full_text.strip()
+
+
+def test_parse_failed_amount_not_zeroed() -> None:
+    doc = extract_document(FIXTURES / "asha_verma_parse_failed_amount.txt")
+    parsed = parse_extracted_document(doc)
+    normalized = normalize_affidavit(parsed)
+    assert normalized.parse_outcome == ParseOutcome.PARTIAL
+    asset = normalized.assets[0]
+    assert asset.field_status.value == "PARSE_FAILED"
+    assert asset.amount_value is None
+    assert asset.amount_raw == "approx lots of money"

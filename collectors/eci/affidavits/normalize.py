@@ -107,6 +107,18 @@ def normalize_affidavit(parsed: ParsedAffidavit) -> NormalizedAffidavit:
             )
         )
 
+    reviewable = {
+        FieldStatus.PARSE_FAILED,
+        FieldStatus.AMBIGUOUS,
+        FieldStatus.NEEDS_REVIEW,
+    }
+    if any(a.field_status in reviewable for a in assets):
+        outcome = ParseOutcome.PARTIAL
+    if any(li.field_status in reviewable for li in liabilities):
+        outcome = ParseOutcome.PARTIAL
+    if any(inc.field_status in reviewable for inc in income):
+        outcome = ParseOutcome.PARTIAL
+
     return NormalizedAffidavit(
         candidate_name_raw=parsed.candidate_name_raw,
         candidate_name_normalized=normalize_name(parsed.candidate_name_raw),
