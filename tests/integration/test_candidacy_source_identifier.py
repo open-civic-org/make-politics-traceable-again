@@ -203,3 +203,33 @@ def test_ind_per_as_source_candidate_id_rejected(db_session) -> None:
     c.run()
     assert c._last_outcome == ParseOutcome.IDENTITY_REVIEW_REQUIRED
     assert session.scalar(select(func.count()).select_from(Affidavit)) == 0
+
+
+def test_csi_rejects_candidacy_election_mismatch(db_session) -> None:
+    session, tmp_path = db_session
+    from packages.db.models import Candidacy, Election, SourceDocument
+    from packages.shared.identity import attach_candidacy_source_identifier
+
+    _seed_election(session, tmp_path)
+    candidacy = session.scalars(select(Candidacy)).first()
+    assert candidacy is not None
+    other_election = Election(
+        election_id="IND-ELC-9999",
+        election_type="LOK_SABHA",
+        year=2019,
+        election_date=None,
+        state_id=session.scalars(select(Election)).first().state_id,
+        constituency_pc_id=session.scalars(select(Election)).first().constituency_pc_id,
+        source_id=session.scalars(select(SourceDocument)).first().source_id,
+    )
+    session.add(other_election)
+    session.flush()
+    with pytest.raises(ValueError, match="election_id"):
+        attach_candidacy_source_identifier(
+            session,
+            candidacy=candidacy,
+            election=other_election,
+            source_id=candidacy.source_id,
+            external_value_raw="ECI-MISMATCH-001",
+            source_system="RESULTS_PORTAL",
+        )
