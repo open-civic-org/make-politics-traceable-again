@@ -29,3 +29,7 @@ See [identity-resolution.md](identity-resolution.md). External ECI IDs map throu
 ## Live ECI results canary
 
 See [eci-live-results.md](eci-live-results.md). Live networking is **off** unless `MPTA_ECI_LIVE_ENABLED=true` and `--confirm-live` are both set. CI remains fully offline (MockTransport).
+
+## Statistical Report 33 staging
+
+See [eci-statistical-reports.md](eci-statistical-reports.md) and [eci-statistical-report-33-schema.md](eci-statistical-report-33-schema.md). Workbook import stages into `eci_election_result_source_record` only — no canonical Person/Candidacy/ElectionResult mutation, no live ECI network, no canary allowlist expansion.

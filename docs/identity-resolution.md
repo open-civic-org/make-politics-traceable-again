@@ -56,3 +56,14 @@ Values that look like internal person IDs (`IND-PER-*`) are rejected as `source_
 `SourceDocument.extraction_confidence` is reserved and currently **unset (`NULL`)**.
 
 Objective provenance fields remain: `extraction_method`, content SHA-256, collector/parser versions, git SHA.
+
+## Statistical report staging identity
+
+Report 33 staging rows may set a **read-only** `identity_candidacy_id` when exactly one candidacy matches:
+
+```text
+normalized candidate name + election year + election type + constituency name
+```
+
+Statuses: `EXACT_LINKED` / `AMBIGUOUS` / `UNRESOLVED` / `CONFLICT` / `NEEDS_REVIEW`.
+Statistical import never creates `Person`, `Candidacy`, or `ElectionResult`.
