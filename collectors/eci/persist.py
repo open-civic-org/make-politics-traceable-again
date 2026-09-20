@@ -57,7 +57,7 @@ def _get_or_create_source(
         parser_version=artifact.collector_version,
         git_commit_sha=artifact.git_commit_sha,
         extraction_method="fixture_json",
-        extraction_confidence="HIGH",
+        extraction_confidence=None,
         verification_status="UNVERIFIED",
     )
     session.add(source)
@@ -285,6 +285,7 @@ def persist_normalized_election(
             )
             session.add(result)
             stats.records_inserted += 1
+            _attach_external_candidate_id(session, candidacy, election, source.source_id, cand)
         else:
             # Idempotent: update votes/rank only if changed; never delete history
             res = existing_cnd.result
@@ -316,8 +317,29 @@ def persist_normalized_election(
                 stats.records_updated += 1
             else:
                 stats.records_unchanged += 1
+            _attach_external_candidate_id(session, existing_cnd, election, source.source_id, cand)
 
     session.flush()
+
+
+def _attach_external_candidate_id(session, candidacy, election, source_id: str, cand) -> None:
+    from packages.shared.identity import (
+        IDENTIFIER_TYPE_CANDIDATE_ID,
+        SOURCE_SYSTEM_RESULTS,
+        attach_candidacy_source_identifier,
+    )
+
+    if not cand.source_candidate_id:
+        return
+    attach_candidacy_source_identifier(
+        session,
+        candidacy=candidacy,
+        election=election,
+        source_id=source_id,
+        external_value_raw=cand.source_candidate_id,
+        source_system=SOURCE_SYSTEM_RESULTS,
+        identifier_type=IDENTIFIER_TYPE_CANDIDATE_ID,
+    )
 
 
 def start_collector_run(

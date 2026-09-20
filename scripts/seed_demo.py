@@ -51,7 +51,7 @@ def _source(seq: int, authority: str, stype: str, title: str, url: str) -> Sourc
         parser_version="0.1.0",
         git_commit_sha="0000000",
         extraction_method="manual_seed",
-        extraction_confidence="HIGH",
+        extraction_confidence=None,
         verification_status="DEMO",
     )
 

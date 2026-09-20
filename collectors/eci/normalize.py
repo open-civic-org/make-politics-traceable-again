@@ -37,6 +37,7 @@ def normalize_election(parsed: ParsedElection) -> NormalizedElection:
                 vote_share_derived=derived,
                 rank=row.rank,
                 result=row.result,
+                source_candidate_id=row.source_candidate_id,
             )
         )
 

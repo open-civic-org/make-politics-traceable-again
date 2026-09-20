@@ -65,31 +65,66 @@ def resolve_person_and_election(
     """
     Link affidavit to Person + Election + Candidacy via exact controlled match only.
 
-    Prefer source_candidate_id when it matches person_id; else exact normalized name.
-    A person match alone is never enough — candidacy and election must resolve uniquely.
+    Preferred: external ECI candidate identifier → candidacy_source_identifier → Candidacy.
+    Fallback: exact normalized name + election year/type/constituency when exactly one match.
+    Never treats an external ECI ID as a Person primary key.
     """
-    person: Person | None = None
-    if normalized.source_candidate_id:
-        person = session.get(Person, normalized.source_candidate_id)
+    from packages.shared.identity import (
+        IDENTIFIER_TYPE_CANDIDATE_ID,
+        SOURCE_AUTHORITY_ECI,
+        lookup_candidacy_by_external_id,
+        person_for_candidacy,
+    )
 
-    if person is None:
-        matches = session.scalars(
-            select(Person).where(Person.normalized_name == normalized.candidate_name_normalized)
-        ).all()
-        if len(matches) == 0:
-            raise LinkageError("IDENTITY_REVIEW_REQUIRED", "no person match for candidate name")
-        if len(matches) > 1:
-            narrowed = _narrow_by_election(session, matches, normalized)
-            if narrowed is None:
+    if normalized.source_candidate_id:
+        ext = normalized.source_candidate_id.strip()
+        # Reject treating IND-PER-* style internal IDs as external ECI identifiers.
+        if ext.upper().startswith("IND-PER-"):
+            raise LinkageError(
+                "IDENTITY_REVIEW_REQUIRED",
+                "source_candidate_id looks like an internal person_id; use external ECI identifier",
+            )
+        candidacy = lookup_candidacy_by_external_id(
+            session,
+            external_value_raw=ext,
+            source_authority=SOURCE_AUTHORITY_ECI,
+            identifier_type=IDENTIFIER_TYPE_CANDIDATE_ID,
+        )
+        if candidacy is not None:
+            election = session.get(Election, candidacy.election_id)
+            person = person_for_candidacy(session, candidacy)
+            if election is None or person is None:
                 raise LinkageError(
                     "IDENTITY_REVIEW_REQUIRED",
-                    (
-                        f"ambiguous person match ({len(matches)}) "
-                        f"for {normalized.candidate_name_raw!r}"
-                    ),
+                    "external candidate identifier mapped but election/person missing",
                 )
-            return narrowed
-        person = matches[0]
+            # When affidavit also supplies year/type/constituency, they must agree.
+            if not _election_matches_affidavit(session, election, normalized):
+                raise LinkageError(
+                    "IDENTITY_REVIEW_REQUIRED",
+                    "external candidate identifier resolved to a candidacy that conflicts "
+                    "with affidavit election/constituency fields",
+                )
+            return person, election, candidacy
+        # Unknown external ID — fall through to controlled name matching (may still fail)
+
+    matches = session.scalars(
+        select(Person).where(Person.normalized_name == normalized.candidate_name_normalized)
+    ).all()
+    if len(matches) == 0:
+        raise LinkageError("IDENTITY_REVIEW_REQUIRED", "no person match for candidate name")
+    if len(matches) > 1:
+        narrowed = _narrow_by_election(session, matches, normalized)
+        if narrowed is None:
+            raise LinkageError(
+                "IDENTITY_REVIEW_REQUIRED",
+                (
+                    f"ambiguous person match ({len(matches)}) "
+                    f"for {normalized.candidate_name_raw!r}"
+                ),
+            )
+        return narrowed
+    person = matches[0]
 
     election, candidacy = _find_election_candidacy(session, person, normalized)
     if election is None or candidacy is None:
@@ -98,6 +133,23 @@ def resolve_person_and_election(
             "person matched but election/candidacy could not be uniquely resolved",
         )
     return person, election, candidacy
+
+
+def _election_matches_affidavit(
+    session: Session, election: Election, normalized: NormalizedAffidavit
+) -> bool:
+    if normalized.election_year is not None and election.year != normalized.election_year:
+        return False
+    if normalized.election_type is not None:
+        if election.election_type.upper() != normalized.election_type.strip().upper():
+            return False
+    if normalized.constituency_name_normalized:
+        if not election.constituency_pc_id:
+            return False
+        pc = session.get(ParliamentaryConstituency, election.constituency_pc_id)
+        if pc is None or normalize_name(pc.name) != normalized.constituency_name_normalized:
+            return False
+    return True
 
 
 def _narrow_by_election(
@@ -183,7 +235,7 @@ def get_or_create_source(
         parser_version=PARSER_VERSION,
         git_commit_sha=artifact.git_commit_sha,
         extraction_method=extraction_method,
-        extraction_confidence="HIGH",
+        extraction_confidence=None,
         verification_status="UNVERIFIED",
     )
     session.add(source)

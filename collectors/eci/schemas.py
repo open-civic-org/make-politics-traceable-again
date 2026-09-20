@@ -14,6 +14,7 @@ class ParsedCandidateResult(BaseModel):
     vote_share_percent: Decimal | None = None
     rank: int | None = None
     result: str | None = None
+    source_candidate_id: str | None = None  # External ECI ID when present; never IND-PER-*
 
 
 class ParsedConstituency(BaseModel):
@@ -44,6 +45,7 @@ class NormalizedCandidateResult(BaseModel):
     vote_share_derived: bool = False
     rank: int | None = None
     result: str | None = None
+    source_candidate_id: str | None = None
 
 
 class NormalizedConstituency(BaseModel):
