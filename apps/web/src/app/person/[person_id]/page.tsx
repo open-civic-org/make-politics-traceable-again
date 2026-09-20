@@ -1,34 +1,117 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPerson } from "@/lib/api";
+import {
+  type CaseDeclaration,
+  type DeclaredValue,
+  type EducationDeclaration,
+  type FinancialDeclaration,
+  getPerson,
+} from "@/lib/api";
 
 type Props = {
   params: Promise<{ person_id: string }>;
 };
 
-function DeclaredList({
-  items,
+function SourceLine({
+  label,
+  year,
+  status,
+  sourceId,
 }: {
-  items: {
-    value: string;
-    declaration_year: number | null;
-    source_id: string;
-    verification_status: string;
-    label: string;
-  }[];
+  label: string;
+  year: number | null;
+  status: string;
+  sourceId: string;
 }) {
+  return (
+    <div className="declared">
+      {label}
+      {year ? ` (${year})` : ""} · {status} ·{" "}
+      <Link href={`/sources/${sourceId}`}>{sourceId}</Link>
+    </div>
+  );
+}
+
+function DeclaredList({ items }: { items: DeclaredValue[] }) {
   if (!items.length) return <p>No declarations on record.</p>;
   return (
     <ul>
       {items.map((item, i) => (
         <li key={`${item.source_id}-${i}`}>
           {item.value}
-          <div className="declared">
-            {item.label}
-            {item.declaration_year ? ` (${item.declaration_year})` : ""} ·{" "}
-            {item.verification_status} ·{" "}
-            <Link href={`/sources/${item.source_id}`}>{item.source_id}</Link>
-          </div>
+          <SourceLine
+            label={item.label}
+            year={item.declaration_year}
+            status={item.verification_status}
+            sourceId={item.source_id}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function EducationList({ items }: { items: EducationDeclaration[] }) {
+  if (!items.length) return <p>No declarations on record.</p>;
+  return (
+    <ul>
+      {items.map((item, i) => (
+        <li key={`${item.source_id}-${i}`}>
+          {item.declared_value}
+          {item.normalized_level ? ` · ${item.normalized_level}` : ""}
+          {item.institution_raw ? ` · ${item.institution_raw}` : ""}
+          <SourceLine
+            label={item.label}
+            year={item.declaration_year}
+            status={item.verification_status}
+            sourceId={item.source_id}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function FinancialList({ items }: { items: FinancialDeclaration[] }) {
+  if (!items.length) return <p>No declarations on record.</p>;
+  return (
+    <ul>
+      {items.map((item, i) => (
+        <li key={`${item.source_id}-${i}`}>
+          {item.category ? `${item.category}: ` : ""}
+          {item.description}
+          {item.amount_raw
+            ? ` — ${item.amount_raw}`
+            : item.amount
+              ? ` — ${item.currency || "INR"} ${item.amount}`
+              : ""}
+          <SourceLine
+            label={item.label}
+            year={item.declaration_year}
+            status={item.verification_status}
+            sourceId={item.source_id}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CaseList({ items }: { items: CaseDeclaration[] }) {
+  if (!items.length) return <p>No declarations on record.</p>;
+  return (
+    <ul>
+      {items.map((item, i) => (
+        <li key={`${item.source_id}-${i}`}>
+          {item.normalized_status ? `[${item.normalized_status}] ` : ""}
+          {item.case_summary}
+          {item.case_number_raw ? ` · ${item.case_number_raw}` : ""}
+          <SourceLine
+            label={item.label}
+            year={item.declaration_year}
+            status={item.verification_status}
+            sourceId={item.source_id}
+          />
         </li>
       ))}
     </ul>
@@ -68,9 +151,8 @@ export default async function PersonPage({ params }: Props) {
       ) : null}
 
       <section className="section">
-        <h2>Background (self-declared)</h2>
-        <h3 style={{ fontSize: "1rem", marginBottom: "0.35rem" }}>Education</h3>
-        <DeclaredList items={person.education_declarations} />
+        <h2>Declared education</h2>
+        <EducationList items={person.education_declarations} />
         <h3 style={{ fontSize: "1rem", margin: "1rem 0 0.35rem" }}>Profession</h3>
         <DeclaredList items={person.profession_declarations} />
       </section>
@@ -98,17 +180,17 @@ export default async function PersonPage({ params }: Props) {
       </section>
 
       <section className="section">
-        <h2>Affidavit declarations</h2>
-        <h3 style={{ fontSize: "1rem", marginBottom: "0.35rem" }}>Assets</h3>
-        <DeclaredList items={person.asset_declarations} />
-        <h3 style={{ fontSize: "1rem", margin: "1rem 0 0.35rem" }}>Liabilities</h3>
-        <DeclaredList items={person.liability_declarations} />
-        <h3 style={{ fontSize: "1rem", margin: "1rem 0 0.35rem" }}>Income</h3>
-        <DeclaredList items={person.income_declarations} />
-        <h3 style={{ fontSize: "1rem", margin: "1rem 0 0.35rem" }}>
-          Cases declared in election affidavit
-        </h3>
-        <DeclaredList items={person.criminal_case_declarations} />
+        <h2>Declared assets</h2>
+        <FinancialList items={person.asset_declarations} />
+        <h2 style={{ marginTop: "1.25rem" }}>Declared liabilities</h2>
+        <FinancialList items={person.liability_declarations} />
+        <h3 style={{ fontSize: "1rem", margin: "1rem 0 0.35rem" }}>Declared income</h3>
+        <FinancialList items={person.income_declarations} />
+        <h2 style={{ marginTop: "1.25rem" }}>Declared cases</h2>
+        <p className="declared" style={{ marginBottom: "0.5rem" }}>
+          Criminal-case disclosures as self-declared in the election affidavit — not a finding of guilt.
+        </p>
+        <CaseList items={person.criminal_case_declarations} />
       </section>
 
       <section className="section">

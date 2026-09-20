@@ -1,0 +1,10 @@
+source_authority: Election Commission of India
+source_type: CANDIDATE_AFFIDAVIT
+format: pdf
+capture_date: 2026-09-19
+election_year: 2024
+sanitized: true
+purpose: Prove PDF extraction is content-based — filename containing "scanned" must not force OCR_REQUIRED when text is extractable
+live_network: false
+notes: |
+  Same machine-readable bytes as asha_verma_form26.pdf; filename is intentionally misleading.

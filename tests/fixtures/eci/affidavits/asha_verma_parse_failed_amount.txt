@@ -1,0 +1,20 @@
+=== HEADER ===
+Candidate Name: Asha Verma
+Constituency: Demo Nagar
+State: Rajasthan
+Election Year: 2024
+Election Type: LOK_SABHA
+
+=== EDUCATION ===
+- Qualification: Bachelor of Engineering
+  Institution: Demo Institute of Technology
+  Year: 2001
+
+=== ASSETS ===
+TOTAL_ASSETS: Total assets | approx lots of money
+
+=== LIABILITIES ===
+TOTAL_LIABILITIES: Total liabilities | Nil
+
+=== CRIMINAL_CASES ===
+Nil

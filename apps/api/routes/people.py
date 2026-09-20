@@ -12,7 +12,15 @@ from packages.db.models import (
     SourceDocument,
 )
 from packages.schemas.common import DeclaredValue, ProvenanceRef
-from packages.schemas.people import ElectionRecord, PaginatedPeople, PersonDetail, PersonSummary
+from packages.schemas.people import (
+    CaseDeclarationOut,
+    EducationDeclarationOut,
+    ElectionRecord,
+    FinancialDeclarationOut,
+    PaginatedPeople,
+    PersonDetail,
+    PersonSummary,
+)
 from packages.shared.ids import normalize_name
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -45,6 +53,12 @@ def _declared(value: str, year: int | None, source_id: str) -> DeclaredValue:
         source_id=source_id,
         verification_status="SELF_DECLARED",
     )
+
+
+def _amount_str(value) -> str | None:
+    if value is None:
+        return None
+    return format(value, "f")
 
 
 @router.get("/people", response_model=PaginatedPeople)
@@ -163,12 +177,12 @@ def get_person(person_id: str, db: Session = Depends(get_db)) -> PersonDetail:
         .all()
     )
 
-    education: list[DeclaredValue] = []
+    education: list[EducationDeclarationOut] = []
     profession: list[DeclaredValue] = []
-    assets: list[DeclaredValue] = []
-    liabilities: list[DeclaredValue] = []
-    cases: list[DeclaredValue] = []
-    income: list[DeclaredValue] = []
+    assets: list[FinancialDeclarationOut] = []
+    liabilities: list[FinancialDeclarationOut] = []
+    cases: list[CaseDeclarationOut] = []
+    income: list[FinancialDeclarationOut] = []
     sources: dict[str, ProvenanceRef] = {}
 
     for aff in affidavits:
@@ -176,26 +190,69 @@ def get_person(person_id: str, db: Session = Depends(get_db)) -> PersonDetail:
         if aff.source:
             sources[aff.source.source_id] = _provenance(aff.source)
         for d in aff.education_declarations:
-            education.append(_declared(d.declared_education, year, d.source_id))
+            education.append(
+                EducationDeclarationOut(
+                    declared_value=d.declared_value_raw or d.declared_education,
+                    normalized_level=d.normalized_level,
+                    institution_raw=d.institution_raw,
+                    year_raw=d.year_raw,
+                    declaration_year=year,
+                    verification_status="SELF_DECLARED",
+                    source_id=d.source_id,
+                )
+            )
         for d in aff.profession_declarations:
             profession.append(_declared(d.declared_profession, year, d.source_id))
         for d in aff.asset_declarations:
-            val = f"{d.asset_category}: {d.description}"
-            if d.declared_value_inr is not None:
-                val += f" (₹{d.declared_value_inr})"
-            assets.append(_declared(val, year, d.source_id))
+            assets.append(
+                FinancialDeclarationOut(
+                    category=d.asset_category,
+                    description=d.description,
+                    amount_raw=d.amount_raw,
+                    amount=_amount_str(d.declared_value_inr),
+                    currency=d.currency or "INR",
+                    declaration_year=year,
+                    source_id=d.source_id,
+                )
+            )
         for d in aff.liability_declarations:
-            val = d.description
-            if d.declared_value_inr is not None:
-                val += f" (₹{d.declared_value_inr})"
-            liabilities.append(_declared(val, year, d.source_id))
+            liabilities.append(
+                FinancialDeclarationOut(
+                    category="TOTAL_LIABILITIES",
+                    description=d.description,
+                    amount_raw=d.amount_raw,
+                    amount=_amount_str(d.declared_value_inr),
+                    currency=d.currency or "INR",
+                    declaration_year=year,
+                    source_id=d.source_id,
+                )
+            )
         for d in aff.criminal_case_declarations:
-            cases.append(_declared(f"[{d.disposition}] {d.case_summary}", year, d.source_id))
+            cases.append(
+                CaseDeclarationOut(
+                    case_summary=d.case_summary,
+                    case_number_raw=d.case_number_raw,
+                    court_raw=d.court_raw,
+                    act_raw=d.act_raw,
+                    section_raw=d.section_raw,
+                    status_raw=d.status_raw,
+                    normalized_status=d.disposition,
+                    declaration_year=year,
+                    source_id=d.source_id,
+                )
+            )
         for d in aff.income_declarations:
-            val = d.description
-            if d.declared_value_inr is not None:
-                val += f" (₹{d.declared_value_inr})"
-            income.append(_declared(val, year, d.source_id))
+            income.append(
+                FinancialDeclarationOut(
+                    category="INCOME",
+                    description=d.description,
+                    amount_raw=d.amount_raw,
+                    amount=_amount_str(d.declared_value_inr),
+                    currency=d.currency or "INR",
+                    declaration_year=year,
+                    source_id=d.source_id,
+                )
+            )
 
     elections: list[ElectionRecord] = []
     for c in candidacies:

@@ -1,0 +1,10 @@
+source_authority: Election Commission of India
+source_type: CANDIDATE_AFFIDAVIT
+format: plaintext_form26_sections
+capture_date: 2026-09-19
+election_year: 2024
+sanitized: true
+purpose: Partial-parse regression — education/assets OK, criminal_cases NEEDS_REVIEW
+live_network: false
+notes: |
+  Synthetic fixture. Criminal section flagged NEEDS_REVIEW while other sections remain usable.

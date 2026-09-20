@@ -296,12 +296,16 @@ class Affidavit(Base):
     affidavit_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     person_id: Mapped[str] = mapped_column(ForeignKey("person.person_id"), nullable=False)
     election_id: Mapped[str | None] = mapped_column(ForeignKey("election.election_id"))
+    candidacy_id: Mapped[str | None] = mapped_column(ForeignKey("candidacy.candidacy_id"))
     original_document_url: Mapped[str | None] = mapped_column(Text)
     local_archive_path: Mapped[str | None] = mapped_column(Text)
     document_sha256: Mapped[str | None] = mapped_column(String(64))
     retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     source_authority: Mapped[str] = mapped_column(String(128), nullable=False)
     source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
+    extraction_status: Mapped[str | None] = mapped_column(String(32))
+    parse_status: Mapped[str | None] = mapped_column(String(32))
+    parser_version: Mapped[str | None] = mapped_column(String(64))
 
     person: Mapped[Person] = relationship()
     election: Mapped[Election | None] = relationship()
@@ -329,6 +333,11 @@ class EducationDeclaration(Base):
     affidavit_id: Mapped[str] = mapped_column(ForeignKey("affidavit.affidavit_id"), nullable=False)
     person_id: Mapped[str] = mapped_column(ForeignKey("person.person_id"), nullable=False)
     declared_education: Mapped[str] = mapped_column(Text, nullable=False)
+    declared_value_raw: Mapped[str | None] = mapped_column(Text)
+    normalized_level: Mapped[str | None] = mapped_column(String(64))
+    institution_raw: Mapped[str | None] = mapped_column(Text)
+    year_raw: Mapped[str | None] = mapped_column(String(32))
+    field_status: Mapped[str | None] = mapped_column(String(32))
     source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
 
     affidavit: Mapped[Affidavit] = relationship(back_populates="education_declarations")
@@ -355,6 +364,10 @@ class AssetDeclaration(Base):
     asset_category: Mapped[str] = mapped_column(String(64), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     declared_value_inr: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    amount_raw: Mapped[str | None] = mapped_column(Text)
+    currency: Mapped[str | None] = mapped_column(String(8), default="INR")
+    field_status: Mapped[str | None] = mapped_column(String(32))
+    is_derived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
 
     affidavit: Mapped[Affidavit] = relationship(back_populates="asset_declarations")
@@ -368,6 +381,10 @@ class LiabilityDeclaration(Base):
     person_id: Mapped[str] = mapped_column(ForeignKey("person.person_id"), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     declared_value_inr: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    amount_raw: Mapped[str | None] = mapped_column(Text)
+    currency: Mapped[str | None] = mapped_column(String(8), default="INR")
+    field_status: Mapped[str | None] = mapped_column(String(32))
+    is_derived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
 
     affidavit: Mapped[Affidavit] = relationship(back_populates="liability_declarations")
@@ -382,6 +399,13 @@ class CriminalCaseDeclaration(Base):
     case_summary: Mapped[str] = mapped_column(Text, nullable=False)
     disposition: Mapped[str] = mapped_column(String(64), nullable=False, default="DECLARED_PENDING")
     ipc_sections: Mapped[str | None] = mapped_column(Text)
+    case_number_raw: Mapped[str | None] = mapped_column(Text)
+    court_raw: Mapped[str | None] = mapped_column(Text)
+    act_raw: Mapped[str | None] = mapped_column(Text)
+    section_raw: Mapped[str | None] = mapped_column(Text)
+    status_raw: Mapped[str | None] = mapped_column(Text)
+    date_raw: Mapped[str | None] = mapped_column(String(64))
+    field_status: Mapped[str | None] = mapped_column(String(32))
     source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
 
     affidavit: Mapped[Affidavit] = relationship(back_populates="criminal_case_declarations")
@@ -395,6 +419,9 @@ class IncomeDeclaration(Base):
     person_id: Mapped[str] = mapped_column(ForeignKey("person.person_id"), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     declared_value_inr: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    amount_raw: Mapped[str | None] = mapped_column(Text)
+    currency: Mapped[str | None] = mapped_column(String(8), default="INR")
+    field_status: Mapped[str | None] = mapped_column(String(32))
     assessment_year: Mapped[str | None] = mapped_column(String(16))
     source_id: Mapped[str] = mapped_column(ForeignKey("source_document.source_id"), nullable=False)
 
@@ -422,6 +449,25 @@ class CollectorRun(Base):
     records_updated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     records_unchanged: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ReviewItem(Base):
+    __tablename__ = "review_item"
+
+    review_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    review_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    field_name: Mapped[str | None] = mapped_column(String(128))
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_text: Mapped[str | None] = mapped_column(Text)
+    page_number: Mapped[int | None] = mapped_column(Integer)
+    source_id: Mapped[str | None] = mapped_column(ForeignKey("source_document.source_id"))
+    affidavit_id: Mapped[str | None] = mapped_column(ForeignKey("affidavit.affidavit_id"))
+    archived_path: Mapped[str | None] = mapped_column(Text)
+    parser_version: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="OPEN")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

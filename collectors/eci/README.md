@@ -8,18 +8,25 @@
 
 ```text
 collectors/eci/
-  collector.py   Fixture-mode pipeline
-  parser.py      RAW JSON → ParsedElection
-  normalize.py   Parsed → Normalized
-  validation.py  Business rules
-  schemas.py     Intermediate types
-  persist.py     Normalized → PostgreSQL + provenance
+  collector.py          Election-results fixture pipeline
+  ...
+  affidavits/           Form-26 affidavit fixture pipeline (Milestone 3)
+    collector.py
+    extract.py
+    parser.py
+    normalize.py
+    validation.py
+    currency.py
+    schemas.py
+    persist.py
+    cli.py
 ```
 
 ## Run (fixture)
 
 ```bash
 uv run python scripts/run_eci_fixture_import.py
+uv run python scripts/run_eci_affidavit_fixture_import.py
 ```
 
 ## Identity policy

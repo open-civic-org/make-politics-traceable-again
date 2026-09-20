@@ -1,0 +1,10 @@
+source_authority: Election Commission of India
+source_type: CANDIDATE_AFFIDAVIT
+format: binary_placeholder
+capture_date: 2026-09-19
+election_year: 2024
+sanitized: true
+purpose: OCR_REQUIRED detection — no machine-readable text
+live_network: false
+notes: |
+  Filename signals scanned/OCR path. Extractor must return OCR_REQUIRED and not invent declarations.

@@ -1,0 +1,27 @@
+=== HEADER ===
+Candidate Name: Bharat Mehta
+Constituency: Demo Nagar
+State: Rajasthan
+Election Year: 2024
+Election Type: LOK_SABHA
+
+=== EDUCATION ===
+- Qualification: Higher Secondary (12th)
+  Institution: Demo Government School
+  Year: 1995
+
+=== ASSETS ===
+TOTAL_ASSETS: Total assets | Rs. 50,00,000
+
+=== LIABILITIES ===
+TOTAL_LIABILITIES: Total liabilities | Nil
+
+=== CRIMINAL_CASES ===
+NEEDS_REVIEW
+- Summary: Alleged offence under IPC (details unclear in fixture)
+  Case Number: CC-99/2020
+  Court: Demo Sessions Court
+  Act: IPC
+  Section: 420
+  Status: Pending trial
+  Date: 2020-06-01
