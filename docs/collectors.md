@@ -21,3 +21,11 @@ When `archive_raw` sees a payload whose SHA-256 already exists under the same `s
 ## Failure artifacts
 
 Failures write `data/failures/COLLECTOR_FAILURE_*.json` with stage, exception type, message, and git commit (no secrets).
+
+## External identifiers
+
+See [identity-resolution.md](identity-resolution.md). External ECI IDs map through `candidacy_source_identifier` to a candidacy — never to `person.person_id`.
+
+## Live ECI results canary
+
+See [eci-live-results.md](eci-live-results.md). Live networking is **off** unless `MPTA_ECI_LIVE_ENABLED=true` and `--confirm-live` are both set. CI remains fully offline (MockTransport).
