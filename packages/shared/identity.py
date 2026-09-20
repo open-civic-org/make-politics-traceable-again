@@ -87,6 +87,12 @@ def attach_candidacy_source_identifier(
     if not value:
         return None
 
+    if candidacy.election_id != election.election_id:
+        raise ValueError(
+            "candidacy.election_id does not match election.election_id; "
+            "refusing contradictory candidacy_source_identifier scope"
+        )
+
     existing = session.scalars(
         select(CandidacySourceIdentifier).where(
             CandidacySourceIdentifier.source_authority == source_authority,

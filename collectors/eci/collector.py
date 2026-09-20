@@ -10,6 +10,7 @@ from collectors.eci.normalize import normalize_election
 from collectors.eci.parser import load_fixture_bytes, parse_archived_payload
 from collectors.eci.persist import (
     finish_collector_run,
+    fixture_election_provenance,
     persist_normalized_election,
     start_collector_run,
 )
@@ -98,7 +99,13 @@ class EciElectionResultsCollector(Collector):
             raise
 
     def persist(self, normalized: NormalizedElection, artifact: ArchivedArtifact) -> None:
-        persist_normalized_election(self.session, normalized, artifact, self.context.stats)
+        persist_normalized_election(
+            self.session,
+            normalized,
+            artifact,
+            self.context.stats,
+            provenance=fixture_election_provenance(collector_version=self.collector_version),
+        )
         self.session.flush()
 
     def run(self):

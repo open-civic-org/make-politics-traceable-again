@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from collectors.base.artifacts import ArchivedArtifact
@@ -12,12 +13,36 @@ from packages.db.models import (
     ParliamentaryConstituency,
     Party,
     Person,
+    ReviewItem,
     SourceDocument,
     State,
 )
 from packages.shared.ids import IdPrefix, allocate_id, normalize_name
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+FIXTURE_PARSER_VERSION = "ECI_FIXTURE_JSON_PARSER_V1"
+FIXTURE_COLLECTOR_NAME = "eci_election_results"
+FIXTURE_EXTRACTION_METHOD = "fixture_json"
+
+
+@dataclass(frozen=True)
+class SourceProvenance:
+    """Caller-supplied provenance — never inferred from collector_version alone."""
+
+    collector_name: str
+    collector_version: str
+    parser_version: str
+    extraction_method: str
+
+
+def fixture_election_provenance(*, collector_version: str) -> SourceProvenance:
+    return SourceProvenance(
+        collector_name=FIXTURE_COLLECTOR_NAME,
+        collector_version=collector_version,
+        parser_version=FIXTURE_PARSER_VERSION,
+        extraction_method=FIXTURE_EXTRACTION_METHOD,
+    )
 
 
 def _next_seq(session: Session, model, id_attr: str) -> int:
@@ -32,14 +57,25 @@ def _next_seq(session: Session, model, id_attr: str) -> int:
 
 
 def _get_or_create_source(
-    session: Session, artifact: ArchivedArtifact, stats: RunStats
-) -> SourceDocument:
-    existing = session.scalars(
+    session: Session,
+    artifact: ArchivedArtifact,
+    stats: RunStats,
+    provenance: SourceProvenance,
+) -> tuple[SourceDocument, str]:
+    """Return (source, status) where status is INSERTED | UNCHANGED | SOURCE_CHANGED."""
+    existing_same = session.scalars(
         select(SourceDocument).where(SourceDocument.content_sha256 == artifact.sha256)
     ).first()
-    if existing:
+    if existing_same:
         stats.records_unchanged += 1
-        return existing
+        return existing_same, "UNCHANGED"
+
+    prior = None
+    if artifact.source_url:
+        prior = session.scalars(
+            select(SourceDocument).where(SourceDocument.source_url == artifact.source_url)
+        ).first()
+    status = "SOURCE_CHANGED" if prior else "INSERTED"
 
     source_id = allocate_id(IdPrefix.SOURCE, _next_seq(session, SourceDocument, "source_id"))
     source = SourceDocument(
@@ -52,18 +88,51 @@ def _get_or_create_source(
         retrieved_at=artifact.retrieved_at,
         content_sha256=artifact.sha256,
         archived_path=str(artifact.archive_dir),
-        collector_name="eci_election_results",
-        collector_version=artifact.collector_version,
-        parser_version=artifact.collector_version,
+        collector_name=provenance.collector_name,
+        collector_version=provenance.collector_version,
+        parser_version=provenance.parser_version,
         git_commit_sha=artifact.git_commit_sha,
-        extraction_method="fixture_json",
+        extraction_method=provenance.extraction_method,
         extraction_confidence=None,
         verification_status="UNVERIFIED",
     )
     session.add(source)
     session.flush()
     stats.records_inserted += 1
-    return source
+    return source, status
+
+
+def _add_source_changed_review(
+    session: Session,
+    *,
+    source: SourceDocument,
+    artifact: ArchivedArtifact,
+    parser_version: str,
+) -> None:
+    existing = session.scalars(
+        select(ReviewItem).where(
+            ReviewItem.source_id == source.source_id,
+            ReviewItem.review_type == "DOCUMENT_REVIEW_REQUIRED",
+            ReviewItem.field_name == "content_sha256",
+            ReviewItem.status == "OPEN",
+        )
+    ).first()
+    if existing is not None:
+        return
+    session.add(
+        ReviewItem(
+            review_id=allocate_id(IdPrefix.REVIEW, _next_seq(session, ReviewItem, "review_id")),
+            review_type="DOCUMENT_REVIEW_REQUIRED",
+            field_name="content_sha256",
+            reason="SOURCE_CHANGED: bytes differ for same source URL; canonical result not mutated",
+            raw_text=artifact.sha256,
+            source_id=source.source_id,
+            archived_path=str(artifact.archive_dir),
+            parser_version=parser_version,
+            status="OPEN",
+        )
+    )
+    session.flush()
 
 
 def _get_or_create_state(
@@ -160,7 +229,6 @@ def _resolve_person(session: Session, *, name_raw: str, stats: RunStats) -> Pers
     if len(matches) == 1:
         stats.records_unchanged += 1
         return matches[0]
-    # Ambiguous or missing → always create new (do not merge on name alone when >1)
     person = Person(
         person_id=allocate_id(IdPrefix.PERSON, _next_seq(session, Person, "person_id")),
         canonical_name=name_raw,
@@ -184,7 +252,6 @@ def _get_or_create_election(
     source_id: str,
     stats: RunStats,
 ) -> Election:
-    # Prefer source election id + constituency; else type/year/pc
     q = select(Election).where(
         Election.election_type == normalized.election_type,
         Election.year == normalized.election_year,
@@ -214,8 +281,35 @@ def persist_normalized_election(
     normalized: NormalizedElection,
     artifact: ArchivedArtifact,
     stats: RunStats,
-) -> None:
-    source = _get_or_create_source(session, artifact, stats)
+    *,
+    provenance: SourceProvenance | None = None,
+) -> str:
+    """
+    Persist normalized election results.
+
+    Returns source status: INSERTED | UNCHANGED | SOURCE_CHANGED.
+
+    SOURCE_CHANGED (same URL, different SHA): archives the new SourceDocument and opens
+    review, but does not mutate canonical ElectionResult rows.
+    """
+    prov = provenance or fixture_election_provenance(collector_version=artifact.collector_version)
+    source, source_status = _get_or_create_source(session, artifact, stats, prov)
+
+    if source_status == "SOURCE_CHANGED":
+        _add_source_changed_review(
+            session,
+            source=source,
+            artifact=artifact,
+            parser_version=prov.parser_version,
+        )
+        session.flush()
+        return source_status
+
+    if source_status == "UNCHANGED":
+        # Same bytes already ingested — idempotent no-op for canonical rows.
+        session.flush()
+        return source_status
+
     state = _get_or_create_state(
         session,
         normalized.constituency.state_name_raw,
@@ -287,7 +381,6 @@ def persist_normalized_election(
             stats.records_inserted += 1
             _attach_external_candidate_id(session, candidacy, election, source.source_id, cand)
         else:
-            # Idempotent: update votes/rank only if changed; never delete history
             res = existing_cnd.result
             if res is None:
                 res = ElectionResult(
@@ -309,17 +402,20 @@ def persist_normalized_election(
                 or res.result != (cand.result or "UNKNOWN")
                 or res.vote_share != cand.vote_share
             ):
-                res.votes_received = cand.votes
-                res.rank = cand.rank
-                res.result = cand.result or "UNKNOWN"
-                res.vote_share = cand.vote_share
-                res.source_id = source.source_id
-                stats.records_updated += 1
+                # Fail closed: never silently replace historical canonical values.
+                _add_source_changed_review(
+                    session,
+                    source=source,
+                    artifact=artifact,
+                    parser_version=prov.parser_version,
+                )
+                stats.records_rejected += 1
             else:
                 stats.records_unchanged += 1
             _attach_external_candidate_id(session, existing_cnd, election, source.source_id, cand)
 
     session.flush()
+    return source_status
 
 
 def _attach_external_candidate_id(session, candidacy, election, source_id: str, cand) -> None:

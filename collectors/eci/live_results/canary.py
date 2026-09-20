@@ -29,6 +29,7 @@ from collectors.eci.live_results.parser import (
 )
 from collectors.eci.normalize import normalize_election
 from collectors.eci.persist import (
+    SourceProvenance,
     finish_collector_run,
     persist_normalized_election,
     start_collector_run,
@@ -68,14 +69,14 @@ class CanaryReport:
     capture_only: bool = True
     persist_attempted: bool = False
     stopped_reason: str | None = None
-    robots_preflight: str = "robots.txt returned 404; no Disallow rules observed"
+    robots_preflight: str | None = None  # NOT_RUN unless a future budgeted preflight runs
     host_allowlist: str = ALLOWED_HOST
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "host_allowlist": self.host_allowlist,
-            "robots_preflight": self.robots_preflight,
+            "robots_preflight": self.robots_preflight or "NOT_RUN",
             "capture_only": self.capture_only,
             "persist_attempted": self.persist_attempted,
             "urls_requested": self.urls_requested,
@@ -353,5 +354,16 @@ def _persist_archived(
     except EciValidationError:
         stats.records_rejected += 1
         raise
-    persist_normalized_election(session, validated, archived, stats)
+    persist_normalized_election(
+        session,
+        validated,
+        archived,
+        stats,
+        provenance=SourceProvenance(
+            collector_name=COLLECTOR_NAME,
+            collector_version=COLLECTOR_VERSION,
+            parser_version=PARSER_VERSION,
+            extraction_method="archived_html",
+        ),
+    )
     session.flush()

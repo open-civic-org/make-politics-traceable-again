@@ -37,7 +37,6 @@ _CONSTITUENCY_RE = re.compile(
     r"(?P<no>\d+)\s*[-–]\s*(?P<name>[A-Za-z0-9() .'-]+)",
     re.I | re.S,
 )
-_STATE_RE = re.compile(r"\(([A-Za-z ]+)\)\s*</", re.I)
 
 
 def validate_layout(html: str) -> LayoutValidation:
@@ -79,26 +78,32 @@ def parse_candidateswise_html(
     """
     Parse archived candidateswise HTML into ParsedElection.
 
-    Fail closed on layout change — returns (validation, None).
+    Fail closed on layout change or missing geography — returns (validation, None).
+    Rank is left null unless explicitly published in the source (not derived by sorting).
     """
     validation = validate_layout(html)
     if validation.status != LayoutStatus.OK:
         return validation, None
 
     text = _strip_tags(html)
-    constituency_name = "UNKNOWN"
+    constituency_name: str | None = None
     constituency_no = None
-    state_name = "UNKNOWN"
+    state_name: str | None = None
 
     cm = _CONSTITUENCY_RE.search(html) or _CONSTITUENCY_RE.search(text)
     if cm:
         constituency_no = cm.group("no")
         constituency_name = cm.group("name").strip()
-    # State often appears as (Bihar) near constituency
     for line in text.splitlines():
         if line.startswith("(") and line.endswith(")") and len(line) < 40:
             state_name = line.strip("()")
             break
+
+    fail_reasons: list[str] = []
+    if not constituency_name:
+        fail_reasons.append("constituency not extracted")
+    if not state_name:
+        fail_reasons.append("state not extracted")
 
     candidates: list[ParsedCandidateResult] = []
     for m in _CAND_BLOCK_RE.finditer(text):
@@ -113,27 +118,27 @@ def parse_candidateswise_html(
                 candidate_name=name,
                 party_name=party,
                 votes=votes,
-                rank=None,
+                rank=None,  # never invent / derive rank as source data
                 result="WON" if status == "won" else "LOST",
                 source_candidate_id=None,  # never invent
             )
         )
 
     if not candidates:
+        fail_reasons.append("no candidate rows extracted")
+
+    if fail_reasons:
         return (
             LayoutValidation(
                 status=LayoutStatus.LAYOUT_CHANGED,
-                reasons=["no candidate rows extracted"],
+                reasons=fail_reasons,
                 title=validation.title,
             ),
             None,
         )
 
-    # Assign ranks by votes desc
-    ordered = sorted(candidates, key=lambda c: c.votes, reverse=True)
-    ranked: list[ParsedCandidateResult] = []
-    for i, c in enumerate(ordered, start=1):
-        ranked.append(c.model_copy(update={"rank": i}))
+    assert constituency_name is not None
+    assert state_name is not None
 
     parsed = ParsedElection(
         election_type=election_type,
@@ -149,6 +154,6 @@ def parse_candidateswise_html(
             if election_type.upper() == "LOK_SABHA"
             else "ASSEMBLY",
         ),
-        candidates=ranked,
+        candidates=candidates,
     )
     return validation, parsed
