@@ -253,7 +253,7 @@ def _run_affidavit(session, tmp_path: Path, fixture: Path, **kwargs):
 def test_pdf_fixture_imports_with_candidacy(db_session) -> None:
     session, tmp_path = db_session
     from collectors.eci.affidavits.schemas import ParseOutcome
-    from packages.db.models import Affidavit
+    from packages.db.models import Affidavit, SourceDocument
 
     _seed_election(session, tmp_path)
     c = _run_affidavit(session, tmp_path, PDF_FIXTURE)
@@ -261,6 +261,21 @@ def test_pdf_fixture_imports_with_candidacy(db_session) -> None:
     aff = session.scalars(select(Affidavit)).one()
     assert aff.candidacy_id is not None
     assert aff.election_id is not None
+    src = session.get(SourceDocument, aff.source_id)
+    assert src is not None
+    assert src.extraction_method == "pypdf"
+
+
+def test_plaintext_fixture_records_plaintext_extraction_method(db_session) -> None:
+    session, tmp_path = db_session
+    from packages.db.models import Affidavit, SourceDocument
+
+    _seed_election(session, tmp_path)
+    _run_affidavit(session, tmp_path, AFFIDAVIT_FIXTURE)
+    aff = session.scalars(select(Affidavit)).one()
+    src = session.get(SourceDocument, aff.source_id)
+    assert src is not None
+    assert src.extraction_method == "plaintext"
 
 
 def test_unique_person_without_candidacy_requires_identity_review(db_session) -> None:
@@ -332,6 +347,40 @@ def test_wrong_constituency_requires_identity_review(db_session) -> None:
         encoding="utf-8",
     )
     c = _run_affidavit(session, tmp_path, fixture)
+    assert c._last_outcome == ParseOutcome.IDENTITY_REVIEW_REQUIRED
+    assert session.scalar(select(func.count()).select_from(Affidavit)) == 0
+
+
+def test_wrong_election_type_requires_identity_review(db_session) -> None:
+    session, tmp_path = db_session
+    from collectors.eci.affidavits.schemas import ParseOutcome
+    from packages.db.models import Affidavit
+
+    _seed_election(session, tmp_path)
+    fixture = tmp_path / "wrong_type.txt"
+    fixture.write_text(
+        AFFIDAVIT_FIXTURE.read_text(encoding="utf-8").replace(
+            "Election Type: LOK_SABHA", "Election Type: VIDHAN_SABHA"
+        ),
+        encoding="utf-8",
+    )
+    c = _run_affidavit(session, tmp_path, fixture)
+    assert c._last_outcome == ParseOutcome.IDENTITY_REVIEW_REQUIRED
+    assert session.scalar(select(func.count()).select_from(Affidavit)) == 0
+
+
+def test_election_missing_constituency_requires_identity_review(db_session) -> None:
+    """Affidavit supplies constituency but linked election has none → no guess."""
+    session, tmp_path = db_session
+    from collectors.eci.affidavits.schemas import ParseOutcome
+    from packages.db.models import Affidavit, Election
+
+    _seed_election(session, tmp_path)
+    for el in session.scalars(select(Election)).all():
+        el.constituency_pc_id = None
+    session.flush()
+
+    c = _run_affidavit(session, tmp_path, AFFIDAVIT_FIXTURE)
     assert c._last_outcome == ParseOutcome.IDENTITY_REVIEW_REQUIRED
     assert session.scalar(select(func.count()).select_from(Affidavit)) == 0
 

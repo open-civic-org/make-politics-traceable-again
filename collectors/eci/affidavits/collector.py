@@ -111,12 +111,14 @@ class EciAffidavitCollector(Collector):
             if self._extraction
             else ExtractionStatus.TEXT_EXTRACTED.value
         )
+        method = self._extraction.extraction_method if self._extraction else "unknown"
         outcome = persist_affidavit(
             self.session,
             normalized,
             artifact,
             self.context.stats,
             extraction_status=status,
+            extraction_method=method,
         )
         self._last_outcome = outcome
         self.session.flush()
@@ -180,7 +182,12 @@ class EciAffidavitCollector(Collector):
     def _handle_unreadable(self, artifact: ArchivedArtifact) -> None:
         """Archive provenance + review; never invent empty declarations."""
         assert self._extraction is not None
-        source, _ = get_or_create_source(self.session, artifact, self.context.stats)
+        source, _ = get_or_create_source(
+            self.session,
+            artifact,
+            self.context.stats,
+            extraction_method=self._extraction.extraction_method,
+        )
         self._last_outcome = (
             ParseOutcome.FAILED
             if self._extraction.extraction_status == ExtractionStatus.EXTRACTION_FAILED

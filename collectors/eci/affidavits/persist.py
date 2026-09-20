@@ -123,31 +123,37 @@ def _find_election_candidacy(
     ).all()
     if not candidacies:
         return None, None
-    if normalized.election_year is None:
-        if len(candidacies) == 1:
-            el = session.get(Election, candidacies[0].election_id)
-            if el is None:
-                return None, None
-            return el, candidacies[0]
-        return None, None
 
     matched: list[tuple[Election, Candidacy]] = []
     for c in candidacies:
         el = session.get(Election, c.election_id)
-        if el is None or el.year != normalized.election_year:
+        if el is None:
             continue
-        if normalized.constituency_name_normalized and el.constituency_pc_id:
+        if normalized.election_year is not None and el.year != normalized.election_year:
+            continue
+        if normalized.election_type is not None:
+            if el.election_type.upper() != normalized.election_type.strip().upper():
+                continue
+        if normalized.constituency_name_normalized:
+            # Affidavit supplied a constituency — election must have a matching one.
+            if not el.constituency_pc_id:
+                continue
             pc = session.get(ParliamentaryConstituency, el.constituency_pc_id)
-            if pc and normalize_name(pc.name) != normalized.constituency_name_normalized:
+            if pc is None or normalize_name(pc.name) != normalized.constituency_name_normalized:
                 continue
         matched.append((el, c))
+
     if len(matched) == 1:
         return matched[0]
     return None, None
 
 
 def get_or_create_source(
-    session: Session, artifact: ArchivedArtifact, stats: RunStats
+    session: Session,
+    artifact: ArchivedArtifact,
+    stats: RunStats,
+    *,
+    extraction_method: str,
 ) -> tuple[SourceDocument, str]:
     """Return (source, status) where status is INSERTED | UNCHANGED | SOURCE_CHANGED."""
     existing_same = session.scalars(
@@ -176,7 +182,7 @@ def get_or_create_source(
         collector_version=artifact.collector_version,
         parser_version=PARSER_VERSION,
         git_commit_sha=artifact.git_commit_sha,
-        extraction_method="text_fixture",
+        extraction_method=extraction_method,
         extraction_confidence="HIGH",
         verification_status="UNVERIFIED",
     )
@@ -193,12 +199,15 @@ def persist_affidavit(
     stats: RunStats,
     *,
     extraction_status: str,
+    extraction_method: str,
 ) -> ParseOutcome:
     try:
         person, election, candidacy = resolve_person_and_election(session, normalized)
     except LinkageError as exc:
         if exc.code == "IDENTITY_REVIEW_REQUIRED":
-            source, _ = get_or_create_source(session, artifact, stats)
+            source, _ = get_or_create_source(
+                session, artifact, stats, extraction_method=extraction_method
+            )
             add_review(
                 session,
                 ReviewItemDraft(
@@ -214,7 +223,9 @@ def persist_affidavit(
             return ParseOutcome.IDENTITY_REVIEW_REQUIRED
         raise
 
-    source, source_status = get_or_create_source(session, artifact, stats)
+    source, source_status = get_or_create_source(
+        session, artifact, stats, extraction_method=extraction_method
+    )
     if source_status == "SOURCE_CHANGED":
         add_review(
             session,
