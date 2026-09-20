@@ -58,7 +58,7 @@ def test_alembic_upgrade_downgrade_upgrade() -> None:
 
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
-    assert heads == ["004_candidacy_source_identifier"]
+    assert heads == ["005_eci_stat_report_staging"]
 
     with engine.connect() as conn:
         tables = {
@@ -70,6 +70,7 @@ def test_alembic_upgrade_downgrade_upgrade() -> None:
     assert "asset_declaration" in tables
     assert "review_item" in tables
     assert "candidacy_source_identifier" in tables
+    assert "eci_election_result_source_record" in tables
 
     get_engine.cache_clear()
     get_session_factory.cache_clear()

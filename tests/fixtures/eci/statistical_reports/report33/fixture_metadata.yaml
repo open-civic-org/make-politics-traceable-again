@@ -1,0 +1,31 @@
+derived_from_official_source: true
+original_source_sha256: null
+original_workbook_capture_status: BLOCKED_WAF_APPTRANA_406
+original_report_number: '33'
+original_report_title: Constituency Wise Detailed Result
+official_pdf_url: https://www.eci.gov.in/eci-backend/public/all_files/GE-2024-statistical-report/33-Constituency-Wise-Detailed-Result.pdf
+schema_source: Official Report 33 PDF field labels + flattened spreadsheet header
+  sequence matching ECI published column names
+sanitized: true
+container_format: xls_ole_cfb
+sheet_name: Detailed Results
+headers:
+- State Name
+- PC Name
+- Candidate Name
+- Gender
+- Age
+- Category
+- Party Name
+- Party Symbol
+- Total Votes Polled In The Constituency
+- Valid Votes
+- Votes Secured - General
+- Votes Secured - Postal
+- Votes Secured - Total
+- '% of Votes Secured - Over Total Electors In Constituency'
+- '% of Votes Secured - Over Total Votes Polled In Constituency'
+- Over Total Valid Votes Polled In Constituency
+- Total Electors
+fixture_sha256: 319e5d17e74f882272616fb8dd9add82bb7188c4ae08ae6af88489ead89bcfc8
+notes: Fictionalized candidate/constituency values. Header labels are not fictionalized.
