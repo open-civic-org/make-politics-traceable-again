@@ -38,6 +38,47 @@ SOURCE_AUTHORITY = "Election Commission of India"
 SOURCE_TYPE = "ELECTION_STATISTICAL_REPORT"
 CAPTURE_METHOD = "GITHUB_ACTION_WORKFLOW_DISPATCH"
 
+# Positive integer report id used in archive paths and artifact names.
+MIN_REPORT_NUMBER = 1
+MAX_REPORT_NUMBER = 9999
+ARTIFACT_NAME_RE = re.compile(r"^[a-z0-9-]+$")
+
+
+def validate_report_number(value: int | str) -> str:
+    """Return a canonical digit string suitable for paths and artifact names.
+
+    Accepts only integers in ``[MIN_REPORT_NUMBER, MAX_REPORT_NUMBER]``.
+    Rejects path separators, whitespace, signs, decimals, and non-digits.
+    """
+    if isinstance(value, bool):
+        raise CaptureAccessError(f"invalid report_number: {value!r}")
+    if isinstance(value, int):
+        n = value
+    elif isinstance(value, str):
+        # str.isdigit() rejects '-', '.', '/', '\\', whitespace, letters.
+        if not value.isdigit():
+            raise CaptureAccessError(
+                f"report_number must be a positive integer digit string, got {value!r}"
+            )
+        n = int(value)
+    else:
+        raise CaptureAccessError(f"invalid report_number type: {type(value).__name__}")
+
+    if not (MIN_REPORT_NUMBER <= n <= MAX_REPORT_NUMBER):
+        raise CaptureAccessError(
+            f"report_number must be in {MIN_REPORT_NUMBER}..{MAX_REPORT_NUMBER}, got {n}"
+        )
+    canonical = str(n)
+    assert canonical.isdigit()
+    return canonical
+
+
+def validate_artifact_name(name: str) -> str:
+    """Ensure artifact names are safe for GitHub Actions output / filesystem labels."""
+    if not ARTIFACT_NAME_RE.fullmatch(name):
+        raise CaptureAccessError(f"unsafe artifact_name rejected: {name!r}")
+    return name
+
 
 @dataclass
 class CaptureReport:
@@ -148,8 +189,10 @@ def _artifact_name(
     report_number: str,
     sha256: str,
 ) -> str:
-    et = re.sub(r"[^a-z0-9]+", "-", election_type.lower()).strip("-")
-    return f"eci-{et}-{election_year}-report-{report_number}-{sha256[:12]}"
+    assert report_number.isdigit()
+    et = re.sub(r"[^a-z0-9]+", "-", election_type.lower()).strip("-") or "election"
+    name = f"eci-{et}-{election_year}-report-{report_number}-{sha256[:12]}"
+    return validate_artifact_name(name)
 
 
 class LocalArchiveCaptureStorage:
@@ -206,6 +249,7 @@ class LocalArchiveCaptureStorage:
 
         year = int(metadata["election_year"])
         report_number = str(metadata["report_number"])
+        assert report_number.isdigit(), "report_number must be canonical digits"
         # archive_raw uses category/year; nest report under metadata + path convention
         archived = archive_raw(
             raw,
@@ -227,7 +271,7 @@ class LocalArchiveCaptureStorage:
 def capture_report(
     *,
     url: str,
-    report_number: str,
+    report_number: int | str,
     report_title: str,
     election_year: int,
     election_type: str,
@@ -240,12 +284,19 @@ def capture_report(
     """Download exactly one report URL and archive exact bytes."""
     report = CaptureReport(
         outcome="FAILED",
-        report_number=report_number,
         report_title=report_title,
         election_year=election_year,
         election_type=election_type,
         requested_url=url,
     )
+
+    try:
+        report_number_str = validate_report_number(report_number)
+    except CaptureAccessError as exc:
+        report.error = str(exc)
+        report.outcome = "FAILED"
+        return report
+    report.report_number = report_number_str
 
     if not confirm_live:
         report.error = "--confirm-live is required"
@@ -295,7 +346,7 @@ def capture_report(
         "source_type": SOURCE_TYPE,
         "requested_url": live.requested_url,
         "final_url": live.final_url,
-        "report_number": report_number,
+        "report_number": report_number_str,
         "report_title": report_title,
         "election_type": election_type,
         "election_year": election_year,
@@ -324,7 +375,7 @@ def capture_report(
         logical_key=logical_source_key(
             election_type=election_type,
             election_year=election_year,
-            report_number=report_number,
+            report_number=report_number_str,
         ),
     )
 
@@ -338,7 +389,7 @@ def capture_report(
     report.artifact_name = _artifact_name(
         election_type=election_type,
         election_year=election_year,
-        report_number=report_number,
+        report_number=report_number_str,
         sha256=stored.sha256,
     )
     capture_report_path.write_text(

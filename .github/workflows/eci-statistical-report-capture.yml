@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       report_number:
-        description: Report number (e.g. 33)
+        description: Positive integer report number (1–9999), e.g. 33
         required: true
         type: string
       report_title:

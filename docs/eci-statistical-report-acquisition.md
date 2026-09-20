@@ -72,6 +72,18 @@ MAX_REPORT_BYTES = 50_000_000
 
 403 / 429 → stop (no bypass). Every attempt (redirect / timeout / 5xx retry) consumes budget.
 
+## Report number
+
+`report_number` is a **positive integer** only:
+
+```text
+1 <= report_number <= 9999
+```
+
+It is validated before any archive path or artifact name is constructed. Canonical form
+is the digit string (e.g. `33` → path component `report_33`). Path traversal / free-form
+strings are rejected.
+
 ## Format detection
 
 Do not trust URL extension / Content-Type alone. Capture inspects bytes:

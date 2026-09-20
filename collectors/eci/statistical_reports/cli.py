@@ -54,7 +54,12 @@ def main(argv: list[str] | None = None) -> int:
 
     cap = sub.add_parser("capture", help="Download one official report URL and archive bytes")
     cap.add_argument("--url", required=True, help="Official HTTPS ECI report URL")
-    cap.add_argument("--report-number", required=True)
+    cap.add_argument(
+        "--report-number",
+        required=True,
+        type=int,
+        help="Positive integer report id (1..9999)",
+    )
     cap.add_argument("--report-title", required=True)
     cap.add_argument("--election-year", type=int, required=True)
     cap.add_argument("--election-type", default="LOK_SABHA")

@@ -13,9 +13,11 @@ import httpx
 import pytest
 import yaml
 from collectors.eci.statistical_reports.capture import (
+    ARTIFACT_NAME_RE,
     CaptureReport,
     capture_report,
     detect_container_format,
+    validate_report_number,
 )
 from collectors.eci.statistical_reports.http_client import (
     ALLOWED_HOSTS,
@@ -72,7 +74,7 @@ def test_live_disabled_by_default() -> None:
 def test_confirm_live_required(tmp_path: Path) -> None:
     report = capture_report(
         url="https://www.eci.gov.in/file.xls",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -82,6 +84,51 @@ def test_confirm_live_required(tmp_path: Path) -> None:
     )
     assert report.outcome == "FAILED"
     assert "--confirm-live" in (report.error or "")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "../../outside",
+        "../33",
+        "33/evil",
+        "33\\evil",
+        "33\nartifact_name=pwned",
+        "33;touch-x",
+        "abc",
+        "0",
+        "-1",
+        "1.5",
+        "10000",
+        "",
+        " 33",
+        "33 ",
+    ],
+)
+def test_report_number_rejects_path_injection(bad: str, tmp_path: Path) -> None:
+    with pytest.raises(CaptureAccessError):
+        validate_report_number(bad)
+
+    report = capture_report(
+        url="https://www.eci.gov.in/file.xls",
+        report_number=bad,
+        report_title="Constituency Wise Detailed Result",
+        election_year=2024,
+        election_type="LOK_SABHA",
+        confirm_live=True,
+        live_enabled=True,
+        raw_root=tmp_path,
+    )
+    assert report.outcome == "FAILED"
+    assert report.archive_dir is None
+    assert not any(tmp_path.rglob("*"))
+
+
+def test_report_number_accepts_positive_integers() -> None:
+    assert validate_report_number(1) == "1"
+    assert validate_report_number(33) == "33"
+    assert validate_report_number("42") == "42"
+    assert validate_report_number(9999) == "9999"
 
 
 def test_url_policy() -> None:
@@ -302,7 +349,7 @@ def test_html_masquerading_rejected(tmp_path: Path) -> None:
 
     report = capture_report(
         url="https://www.eci.gov.in/fake.xls",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -325,7 +372,7 @@ def test_fresh_archive_root_is_first_observation(tmp_path: Path) -> None:
 
     report = capture_report(
         url="https://www.eci.gov.in/report33.xls",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -338,6 +385,18 @@ def test_fresh_archive_root_is_first_observation(tmp_path: Path) -> None:
     assert report.outcome == "SUCCESS"
     assert report.source_status == "FIRST_OBSERVATION"
     assert report.detected_container_format == "OLE_CFB"
+    assert report.report_number == "33"
+    assert report.artifact_name is not None
+    assert ARTIFACT_NAME_RE.fullmatch(report.artifact_name)
+    assert "/" not in report.artifact_name
+    assert "\\" not in report.artifact_name
+    assert "\n" not in report.artifact_name
+    assert "=" not in report.artifact_name
+
+    archive = Path(report.archive_dir).resolve()
+    expected_root = (tmp_path / "eci" / "statistical_reports").resolve()
+    assert archive.is_relative_to(expected_root)
+    assert "report_33" in archive.parts
 
 
 def test_persistent_prior_unchanged_and_source_changed(tmp_path: Path) -> None:
@@ -353,7 +412,7 @@ def test_persistent_prior_unchanged_and_source_changed(tmp_path: Path) -> None:
     transport = httpx.MockTransport(handler)
     r1 = capture_report(
         url="https://www.eci.gov.in/report33.xls",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -370,7 +429,7 @@ def test_persistent_prior_unchanged_and_source_changed(tmp_path: Path) -> None:
 
     r2 = capture_report(
         url="https://www.eci.gov.in/report33.xls",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -388,7 +447,7 @@ def test_persistent_prior_unchanged_and_source_changed(tmp_path: Path) -> None:
     time.sleep(0.01)
     r3 = capture_report(
         url="https://www.eci.gov.in/report33.xls",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -412,7 +471,7 @@ def test_generic_zip_capture_rejected(tmp_path: Path) -> None:
 
     report = capture_report(
         url="https://www.eci.gov.in/not-workbook.zip",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -432,7 +491,7 @@ def test_ooxml_capture_success(tmp_path: Path) -> None:
 
     report = capture_report(
         url="https://www.eci.gov.in/report33.xlsx",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -465,7 +524,7 @@ def test_capture_does_not_touch_canonical_models(tmp_path: Path) -> None:
 
     report = capture_report(
         url="https://www.eci.gov.in/report33.xlsx",
-        report_number="33",
+        report_number=33,
         report_title="Constituency Wise Detailed Result",
         election_year=2024,
         election_type="LOK_SABHA",
@@ -533,7 +592,7 @@ def test_cli_treats_malicious_title_as_data(tmp_path: Path) -> None:
 
     report = capture_report(
         url=safe_url,
-        report_number="33",
+        report_number=33,
         report_title=malicious_title,
         election_year=2024,
         election_type="LOK_SABHA",
